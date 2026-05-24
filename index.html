@@ -219,6 +219,7 @@
     .prio-chip.p-alta.sel  { border-color:#7a3030; background:#f2e9e9; color:#7a3030; font-weight:500; }
     .prio-chip.p-media.sel { border-color:#8b6914; background:#f2ece0; color:#6b5320; font-weight:500; }
     .prio-chip.p-baixa.sel { border-color:#2c4a3e; background:#e2ece9; color:#2c4a3e; font-weight:500; }
+    @media (max-width:680px) { .qa-row { flex-direction:column; gap:18px; } }
     .sub-bar-wrap { height:3px; background:rgba(172,164,151,.3); margin-top:10px; }
     .sub-bar { height:100%; background:var(--green); width:0; transition:width .2s; }
     .tm-actions { display:flex; gap:8px; margin-top:24px; flex-wrap:wrap; }
@@ -531,17 +532,12 @@
   <div class="modal qa-box">
     <h3>Nova tarefa</h3>
     <textarea id="qa-title" class="qa-title" placeholder="O que precisas de fazer?"></textarea>
-    <div class="qa-section">
-      <label class="qa-label">Prioridade</label>
-      <div class="qa-prio" id="qa-prio">
-        <button type="button" class="prio-chip p-baixa" data-v="baixa" onclick="qaSetPrio('baixa')">Baixa</button>
-        <button type="button" class="prio-chip p-media" data-v="media" onclick="qaSetPrio('media')">Média</button>
-        <button type="button" class="prio-chip p-alta" data-v="alta" onclick="qaSetPrio('alta')">Alta</button>
-      </div>
-    </div>
     <div class="qa-row">
+      <div class="qa-col"><label class="qa-label">Prioridade</label>
+        <select id="qa-priority"><option value="">—</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>
+      </div>
       <div class="qa-col"><label class="qa-label">Data limite</label><input id="qa-date" type="date"></div>
-      <div class="qa-col"><label class="qa-label">Unidade / Lista</label><select id="qa-list" onchange="qaListChange()"></select></div>
+      <div class="qa-col"><label class="qa-label">Lista</label><select id="qa-list" onchange="qaListChange()"></select></div>
     </div>
     <div class="qa-section" id="qa-dept-wrap" style="display:none">
       <label class="qa-label">Departamento</label>
@@ -1168,11 +1164,7 @@ window.openSidebar  = () => { document.getElementById('sidebar').classList.add('
 window.closeSidebar = () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mob-overlay').classList.remove('show'); };
 
 // ── Render: Dashboard ──────────────────────────────────────────────────────
-let qaSubs = [], qaPrio = '';
-window.qaSetPrio = (v) => {
-  qaPrio = (qaPrio === v) ? '' : v;
-  document.querySelectorAll('#qa-prio .prio-chip').forEach(b => b.classList.toggle('sel', b.dataset.v === qaPrio));
-};
+let qaSubs = [];
 window.qaAddSub = () => {
   const inp = document.getElementById('qa-sub-input');
   const dateInp = document.getElementById('qa-sub-date');
@@ -1193,10 +1185,10 @@ function qaRenderSubs() {
 }
 window.openQuickAdd = () => {
   document.getElementById('qa-title').value = '';
+  document.getElementById('qa-priority').value = '';
   document.getElementById('qa-date').value = '';
   document.getElementById('qa-sub-input').value = '';
   document.getElementById('qa-sub-date').value = '';
-  qaPrio = ''; document.querySelectorAll('#qa-prio .prio-chip').forEach(b => b.classList.remove('sel'));
   qaSubs = []; qaRenderSubs();
   qaFillLists();
   document.getElementById('qa-modal').style.display = 'flex';
@@ -1224,7 +1216,7 @@ window.createQuickTask = async () => {
   if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) { dueDate = a; showToast('Fim de semana → movido para sexta-feira'); } }
   await addDoc(collection(db,'tasks'), {
     title,
-    priority: qaPrio || null,
+    priority: document.getElementById('qa-priority').value || null,
     dueDate,
     listId: document.getElementById('qa-list').value || null,
     department: document.getElementById('qa-dept').value || null,
