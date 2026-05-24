@@ -226,14 +226,17 @@
     .dash-card h4 { font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--taupe); margin-bottom:12px; font-weight:400; }
     .dash-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:14px; }
     .dash-grid .dash-card { margin-bottom:0; }
-    .unit-row { display:flex; align-items:center; gap:12px; padding:10px 0; cursor:pointer; border-bottom:1px solid rgba(172,164,151,.15); transition:opacity .12s; }
+    .unit-row { display:flex; align-items:flex-start; gap:12px; padding:11px 0; cursor:pointer; border-bottom:1px solid rgba(172,164,151,.15); transition:opacity .12s; }
     .unit-row:last-child { border-bottom:none; }
     .unit-row:hover { opacity:.65; }
-    .unit-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .unit-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; margin-top:6px; }
     .unit-name { flex:1; font-size:15px; }
     .unit-stat { font-size:13px; color:var(--taupe); }
     .unit-stat b { color:var(--green); font-weight:500; }
     .unit-stat .late { color:#7a3030; }
+    .unit-bar { height:4px; background:rgba(172,164,151,.25); margin-top:7px; }
+    .unit-bar-fill { height:100%; transition:width .3s; }
+    .unit-pct { font-size:11px; color:var(--taupe); margin-top:5px; letter-spacing:.03em; }
     .stat-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid rgba(172,164,151,.15); font-size:14px; }
     .stat-row:last-child { border-bottom:none; }
     .stat-row .v { font-size:18px; font-weight:400; color:var(--green); }
@@ -1086,13 +1089,32 @@ window.renderDashboard = async function() {
   const focusHtml = focus.length ? focus.map(taskHtml).join('')
     : `<div class="dash-empty">Sem tarefas vencidas nem para hoje. Tudo em dia. ✦</div>`;
 
+  // Prazos · próximos 7 dias (a vencer, exclui hoje/vencidas)
+  const upcoming = active.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= wEnd).sort((a,b) => a.dueDate > b.dueDate ? 1 : -1);
+  const upcomingHtml = upcoming.length ? upcoming.map(taskHtml).join('')
+    : `<div class="dash-empty">Sem prazos nos próximos 7 dias.</div>`;
+
+  // A precisar de atenção (bloqueadas + à espera)
+  const attention = active.filter(t => t.status === 'blocked' || t.status === 'waiting');
+  const attentionHtml = attention.length ? attention.map(taskHtml).join('')
+    : `<div class="dash-empty">Nada bloqueado nem em espera. ✦</div>`;
+
   const unitHtml = lists.length ? lists.map(l => {
-    const la = active.filter(t => t.listId === l.id);
+    const all = tasks.filter(t => t.listId === l.id);
+    const la = all.filter(t => !t.completed);
+    const ld = all.filter(t => t.completed);
     const lo = la.filter(t => t.dueDate && t.dueDate < today);
+    const pct = all.length ? Math.round(ld.length / all.length * 100) : 0;
     return `<div class="unit-row" onclick="selectView('${l.id}')">
       <span class="unit-dot" style="background:${l.color}"></span>
-      <span class="unit-name">${esc(l.name)}</span>
-      <span class="unit-stat"><b>${la.length}</b> ativas${lo.length?` · <span class="late">${lo.length} vencidas</span>`:''}</span>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <span class="unit-name">${esc(l.name)}</span>
+          <span class="unit-stat"><b>${la.length}</b> ativas${lo.length?` · <span class="late">${lo.length} venc.</span>`:''}</span>
+        </div>
+        <div class="unit-bar"><div class="unit-bar-fill" style="width:${pct}%;background:${l.color}"></div></div>
+        <div class="unit-pct">${pct}% concluído · ${ld.length}/${all.length}</div>
+      </div>
     </div>`;
   }).join('') : `<div class="dash-empty">Sem listas.</div>`;
 
@@ -1108,6 +1130,8 @@ window.renderDashboard = async function() {
   wrap.innerHTML = `${kpis}
     <div class="dash-card"><h4>Foco de hoje</h4>${focusHtml}</div>
     <div class="dash-grid">
+      <div class="dash-card"><h4>Prazos · próximos 7 dias</h4>${upcomingHtml}</div>
+      <div class="dash-card"><h4>A precisar de atenção</h4>${attentionHtml}</div>
       <div class="dash-card"><h4>Por unidade</h4>${unitHtml}</div>
       <div class="dash-card"><h4>Estado &amp; prioridade</h4>${stateHtml}</div>
       <div class="dash-card" id="dash-events"><h4>Próximos eventos</h4><div class="dash-empty">${accessToken?'A carregar…':'Liga ao Google (sidebar) para veres a agenda.'}</div></div>
