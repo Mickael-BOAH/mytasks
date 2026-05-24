@@ -11,7 +11,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
       --cream: #e2dfd6; --taupe: #aca497;
@@ -312,19 +311,10 @@
       </svg>
       <span class="wordmark">BOA Hotels</span>
     </div>
-    <h1>Configuração</h1>
-    <p class="sub">Para sincronizar entre iPhone, iPad, Mac e Windows, liga ao Firebase. Cola aqui o teu <em>firebaseConfig</em>:</p>
-    <textarea id="cfg-input" spellcheck="false" placeholder="{
-  apiKey: &quot;AIzaSy...&quot;,
-  authDomain: &quot;meu-projeto.firebaseapp.com&quot;,
-  projectId: &quot;meu-projeto&quot;,
-  storageBucket: &quot;meu-projeto.appspot.com&quot;,
-  messagingSenderId: &quot;123...&quot;,
-  appId: &quot;1:123...:web:abc...&quot;
-}"></textarea>
+    <h1>Gestor de Tarefas</h1>
+    <p class="sub">Entra com a tua conta Google para acederes às tuas tarefas — liga automaticamente a agenda e o email.</p>
     <div id="setup-error"></div>
-    <button class="btn-connect" onclick="connectFirebase()">Ligar e começar</button>
-    <span class="guide-link">Ainda não tens projeto? <a href="#" onclick="showGuide(event)">Ver instruções Firebase</a></span>
+    <button class="btn-connect" onclick="doLogin()">Entrar com Google</button>
   </div>
 </div>
 
@@ -467,6 +457,7 @@
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
     </button>
+    <a class="google-connected" style="cursor:pointer;display:block;margin-top:10px" onclick="logout()">Terminar sessão →</a>
   </div>
 </div>
 
@@ -637,9 +628,12 @@ import {
   getFirestore, collection, addDoc, onSnapshot,
   doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, getDocs, where
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
-let db, view = 'dashboard', lists = [], tasks = [];
+let db, auth, appStarted = false, view = 'dashboard', lists = [], tasks = [];
 let pickedColor = '#233b34';
 let accessToken = null, tokenClient = null, schedulingTask = null;
 let editingListId = null, pendingDepts = [];
@@ -676,21 +670,24 @@ window.connectFirebase = function() {
 window.showGuide = (e) => { e.preventDefault(); document.getElementById('guide-overlay').style.display = 'flex'; };
 
 function boot(cfg) {
+  const app = getApps().length ? getApps()[0] : initializeApp(cfg);
+  db = getFirestore(app);
+  auth = getAuth(app);
+  buildColors();
+  onAuthStateChanged(auth, (user) => {
+    if (user) { document.getElementById('setup').style.display = 'none'; startApp(); }
+    else { document.getElementById('setup').style.display = 'flex'; }
+  });
+}
+function startApp() {
+  if (!appStarted) { appStarted = true; subscribe(); setTimeout(() => selectView('dashboard'), 0); }
+  restoreGoogleToken();
+}
+function restoreGoogleToken() {
   try {
-    const app = getApps().length ? getApps()[0] : initializeApp(cfg);
-    db = getFirestore(app);
-    document.getElementById('setup').style.display = 'none';
-    document.getElementById('google-connect-btn').style.display = 'block';
-    buildColors();
-    subscribe();
-    setTimeout(() => selectView('dashboard'), 0);
-    // Auto-restore Google (Client ID is baked in, works on any device)
-    const savedCid = localStorage.getItem('myt-gcid') || GOOGLE_CID;
-    if (savedCid) tryRestoreGoogle(savedCid);
-  } catch {
-    localStorage.removeItem('myt-cfg');
-    alert('Erro ao ligar ao Firebase. Verifica a configuração.');
-  }
+    const c = JSON.parse(localStorage.getItem('myt-gtok') || 'null');
+    if (c && c.token && c.expiry > Date.now()) { accessToken = c.token; onGoogleConnected(); }
+  } catch {}
 }
 
 const FIREBASE_CFG = {
@@ -712,8 +709,13 @@ function subscribe() {
     renderSidebar(); renderListSelect();
     if (view === 'dashboard') renderDashboard();
   }, e => {
-    if (e.code === 'permission-denied')
-      document.getElementById('sync-status').textContent = '⚠ Ativa o Firestore';
+    if (e.code === 'permission-denied') {
+      const se = document.getElementById('setup-error');
+      se.style.display = 'block';
+      se.textContent = 'Esta conta Google não tem acesso à app.';
+      document.getElementById('setup').style.display = 'flex';
+      signOut(auth);
+    }
   });
   onSnapshot(query(collection(db,'tasks'), orderBy('createdAt')), snap => {
     tasks = snap.docs.map(d => ({id:d.id, ...d.data()}));
@@ -932,66 +934,31 @@ window.taskFollowUp = () => {
 window.openGoogleModal  = () => { document.getElementById('google-modal').style.display = 'flex'; setTimeout(() => document.getElementById('google-cid').focus(), 80); };
 window.closeGoogleModal = () => document.getElementById('google-modal').style.display = 'none';
 
-window.initGoogle = function() {
-  const cid = document.getElementById('google-cid').value.trim();
-  const err = document.getElementById('google-modal-error');
-  if (!cid || !cid.includes('.apps.googleusercontent.com')) {
-    err.style.display = 'block';
-    err.textContent = 'Client ID inválido — deve terminar em .apps.googleusercontent.com';
-    return;
-  }
-  err.style.display = 'none';
-  localStorage.setItem('myt-gcid', cid);
-  setupTokenClient(cid, true);
-};
-
-window.connectGoogle = function() {
-  const cid = localStorage.getItem('myt-gcid') || GOOGLE_CID;
-  if (!cid) { openGoogleModal(); return; }
-  localStorage.setItem('myt-gcid', cid);
-  if (!tokenClient) setupTokenClient(cid, false);
-  if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
-};
-
-function tryRestoreGoogle(cid) {
-  setupTokenClient(cid, false);
+window.doLogin = async () => {
+  const err = document.getElementById('setup-error'); if (err) err.style.display = 'none';
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/calendar.events');
+  provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
   try {
-    const c = JSON.parse(localStorage.getItem('myt-gtok') || 'null');
-    if (c && c.token && c.expiry > Date.now()) { accessToken = c.token; onGoogleConnected(); }
-  } catch {}
-}
+    const result = await signInWithPopup(auth, provider);
+    const cred = GoogleAuthProvider.credentialFromResult(result);
+    if (cred && cred.accessToken) {
+      accessToken = cred.accessToken;
+      localStorage.setItem('myt-gtok', JSON.stringify({token: accessToken, expiry: Date.now() + 3540000}));
+      onGoogleConnected();
+    }
+  } catch (e) {
+    if (err) { err.style.display = 'block'; err.textContent = 'Não foi possível entrar. Tenta novamente.'; }
+  }
+};
+window.connectGoogle = () => doLogin();
+window.logout = async () => { localStorage.removeItem('myt-gtok'); try { await signOut(auth); } catch {} location.reload(); };
 
 function googleExpired() {
   accessToken = null;
   localStorage.removeItem('myt-gtok');
   document.getElementById('google-connect-btn').style.display = 'block';
   document.getElementById('google-connected-status').style.display = 'none';
-}
-
-function setupTokenClient(cid, requestNow) {
-  if (typeof google === 'undefined' || !google.accounts) {
-    setTimeout(() => setupTokenClient(cid, requestNow), 500);
-    return;
-  }
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: cid,
-    scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.readonly',
-    callback: (resp) => {
-      if (resp.error) {
-        if (requestNow) {
-          const err = document.getElementById('google-modal-error');
-          err.style.display = 'block';
-          err.textContent = 'Erro: ' + (resp.error_description || resp.error) + '. Verifica o Client ID e as origens autorizadas.';
-        }
-        return;
-      }
-      accessToken = resp.access_token;
-      const ttl = (resp.expires_in ? resp.expires_in * 1000 : 3600000) - 60000;
-      localStorage.setItem('myt-gtok', JSON.stringify({token: accessToken, expiry: Date.now() + ttl}));
-      onGoogleConnected();
-    }
-  });
-  if (requestNow) tokenClient.requestAccessToken({prompt: 'consent'});
 }
 
 function onGoogleConnected() {
