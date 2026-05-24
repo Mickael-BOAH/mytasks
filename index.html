@@ -254,6 +254,9 @@
     .action-req { border:1px solid rgba(139,105,20,.5); border-left:4px solid #8b6914; background:#faf6ec; }
     .action-req h4 { color:#6b5320; }
     .action-hint { font-size:12px; color:var(--taupe); font-style:italic; margin-top:10px; }
+    .sub-deadline { cursor:pointer; }
+    .sub-mark { color:var(--taupe); font-size:14px; margin-top:2px; flex-shrink:0; width:17px; text-align:center; }
+    .due-parent { font-size:11px; color:var(--taupe); font-style:italic; }
     @media (max-width:680px) { .dash-kpis { grid-template-columns:repeat(2,1fr); } }
 
     /* ── Toast ──────────────────────────────────────────────────────────── */
@@ -1216,6 +1219,21 @@ window.createQuickTask = async () => {
   closeQuickAdd();
   showToast('Tarefa criada');
 };
+function subDeadlineHtml(t, s) {
+  const today = todayStr();
+  let cls = 'due', lbl = fmtDate(s.due);
+  if (s.due < today) { cls = 'due late'; lbl += ' — vencida'; }
+  else if (s.due === today) { cls = 'due today-due'; lbl = 'Hoje'; }
+  const l = lists.find(x => x.id === t.listId);
+  const tag = l ? `<span class="list-tag" style="background:${l.color}18;color:${l.color}">${esc(l.name)}</span>` : '';
+  return `<div class="task sub-deadline" onclick="openTask('${t.id}')">
+    <div class="sub-mark">↳</div>
+    <div class="task-body">
+      <div class="task-title" style="font-size:15px">${esc(s.text)}</div>
+      <div class="task-meta"><span class="due-parent">de: ${esc(t.title)}</span><span class="${cls}">${lbl}</span>${tag}</div>
+    </div>
+  </div>`;
+}
 window.renderDashboard = async function() {
   const wrap = document.getElementById('tasks-wrap');
   const today = todayStr();
@@ -1234,8 +1252,11 @@ window.renderDashboard = async function() {
     <div class="kpi"><div class="num">${doneWeek.length}</div><div class="lbl">Concluídas 7d</div></div>
   </div>`;
 
-  const focus = [...overdue, ...todayT];
-  const focusHtml = focus.length ? focus.map(taskHtml).join('')
+  const focusItems = [];
+  [...overdue, ...todayT].forEach(t => focusItems.push({date:t.dueDate, html:taskHtml(t)}));
+  active.forEach(t => (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due <= today) focusItems.push({date:s.due, html:subDeadlineHtml(t,s)}); }));
+  focusItems.sort((a,b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  const focusHtml = focusItems.length ? focusItems.map(x => x.html).join('')
     : `<div class="dash-empty">Sem tarefas vencidas nem para hoje. Tudo em dia. ✦</div>`;
 
   // Ação necessária — tarefas sem lista (todas devem pertencer a uma unidade)
@@ -1244,9 +1265,14 @@ window.renderDashboard = async function() {
     ? `<div class="dash-card action-req"><h4>⚠ Ação necessária — ${orphans.length} ${orphans.length===1?'tarefa sem lista':'tarefas sem lista'}</h4>${orphans.map(taskHtml).join('')}<div class="action-hint">Abre cada uma e atribui uma lista — todas as tarefas devem pertencer a uma unidade.</div></div>`
     : '';
 
-  // Prazos · próximos 7 dias (a vencer, exclui hoje/vencidas)
-  const upcoming = active.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= wEnd).sort((a,b) => a.dueDate > b.dueDate ? 1 : -1);
-  const upcomingHtml = upcoming.length ? upcoming.map(taskHtml).join('')
+  // Prazos · próximos 7 dias (tarefas + subtarefas, a vencer)
+  const upcomingItems = [];
+  active.forEach(t => {
+    if (t.dueDate && t.dueDate > today && t.dueDate <= wEnd) upcomingItems.push({date:t.dueDate, html:taskHtml(t)});
+    (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due > today && s.due <= wEnd) upcomingItems.push({date:s.due, html:subDeadlineHtml(t,s)}); });
+  });
+  upcomingItems.sort((a,b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
+  const upcomingHtml = upcomingItems.length ? upcomingItems.map(x => x.html).join('')
     : `<div class="dash-empty">Sem prazos nos próximos 7 dias.</div>`;
 
   // A precisar de atenção (bloqueadas + à espera)
