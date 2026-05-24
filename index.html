@@ -244,6 +244,9 @@
     .dash-ev:last-child { border-bottom:none; }
     .dash-ev .t { color:var(--taupe); font-style:italic; min-width:104px; font-size:12px; flex-shrink:0; }
     .dash-empty { color:var(--taupe); font-style:italic; font-size:14px; padding:6px 0; line-height:1.6; }
+    .action-req { border:1px solid rgba(139,105,20,.5); border-left:4px solid #8b6914; background:#faf6ec; }
+    .action-req h4 { color:#6b5320; }
+    .action-hint { font-size:12px; color:var(--taupe); font-style:italic; margin-top:10px; }
     @media (max-width:680px) { .dash-kpis { grid-template-columns:repeat(2,1fr); } }
 
     /* ── Toast ──────────────────────────────────────────────────────────── */
@@ -531,6 +534,12 @@
       <div class="field" style="margin:0"><label>Data fim</label>
         <input type="date" id="tm-due" onchange="saveTaskField('dueDate', this.value)">
       </div>
+      <div class="field" style="margin:0"><label>Lista</label>
+        <select id="tm-list" onchange="onTaskListChange()"></select>
+      </div>
+      <div class="field" style="margin:0" id="tm-dept-wrap"><label>Departamento</label>
+        <select id="tm-dept" onchange="saveTaskField('department', this.value)"></select>
+      </div>
     </div>
     <div class="field"><label>Repetir</label>
       <select id="tm-repeat" onchange="saveTaskField('repeat', this.value)" style="width:100%">
@@ -770,6 +779,7 @@ window.openTask = (id) => {
   document.getElementById('tm-due').value      = t.dueDate || '';
   document.getElementById('tm-notes').value    = t.notes || '';
   document.getElementById('tm-repeat').value   = t.repeat || '';
+  fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
   document.getElementById('task-modal').style.display = 'flex';
 };
@@ -788,6 +798,27 @@ window.saveTaskField = (field, value) => {
   const upd = {[field]: v};
   if (field === 'status') { upd.completed = (value === 'done'); upd.completedAt = (value === 'done') ? Date.now() : null; }
   updateDoc(doc(db,'tasks',currentTaskId), upd);
+};
+function fillTaskModalLists(listId, dept) {
+  const ls = document.getElementById('tm-list');
+  ls.innerHTML = '<option value="">— Sem lista —</option>' + lists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+  ls.value = listId || '';
+  fillTaskModalDept(dept);
+}
+function fillTaskModalDept(dept) {
+  const list = lists.find(l => l.id === document.getElementById('tm-list').value);
+  const depts = list?.departments || [];
+  const ds = document.getElementById('tm-dept');
+  document.getElementById('tm-dept-wrap').style.display = depts.length ? '' : 'none';
+  ds.innerHTML = depts.length
+    ? '<option value="">— Sem departamento —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('')
+    : '';
+  ds.value = dept || '';
+}
+window.onTaskListChange = function() {
+  saveTaskField('listId', document.getElementById('tm-list').value);
+  saveTaskField('department', '');
+  fillTaskModalDept('');
 };
 function renderSubtasks(subs) {
   const done = subs.filter(s => s.done).length;
@@ -1089,6 +1120,12 @@ window.renderDashboard = async function() {
   const focusHtml = focus.length ? focus.map(taskHtml).join('')
     : `<div class="dash-empty">Sem tarefas vencidas nem para hoje. Tudo em dia. ✦</div>`;
 
+  // Ação necessária — tarefas sem lista (todas devem pertencer a uma unidade)
+  const orphans = active.filter(t => !t.listId);
+  const orphanCard = orphans.length
+    ? `<div class="dash-card action-req"><h4>⚠ Ação necessária — ${orphans.length} ${orphans.length===1?'tarefa sem lista':'tarefas sem lista'}</h4>${orphans.map(taskHtml).join('')}<div class="action-hint">Abre cada uma e atribui uma lista — todas as tarefas devem pertencer a uma unidade.</div></div>`
+    : '';
+
   // Prazos · próximos 7 dias (a vencer, exclui hoje/vencidas)
   const upcoming = active.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= wEnd).sort((a,b) => a.dueDate > b.dueDate ? 1 : -1);
   const upcomingHtml = upcoming.length ? upcoming.map(taskHtml).join('')
@@ -1128,6 +1165,7 @@ window.renderDashboard = async function() {
     <div class="stat-row"><span>Alta prioridade</span><span class="v" style="color:#7a3030">${alta}</span></div>`;
 
   wrap.innerHTML = `${kpis}
+    ${orphanCard}
     <div class="dash-card"><h4>Foco de hoje</h4>${focusHtml}</div>
     <div class="dash-grid">
       <div class="dash-card"><h4>Prazos · próximos 7 dias</h4>${upcomingHtml}</div>
