@@ -1277,7 +1277,7 @@ function filtered() {
 function renderTasks() {
   const wrap   = document.getElementById('tasks-wrap');
   const all    = filtered();
-  const active = all.filter(t => !t.completed);
+  const active = all.filter(t => !t.completed).sort(byDue);
   const done   = all.filter(t => t.completed);
   const currentList = lists.find(l => l.id === view);
   const depts = currentList?.departments;
@@ -1492,6 +1492,10 @@ function nextDate(dateStr, repeat) {
   const out = fmtISO(d);
   return (repeat === 'daily' || repeat === 'weekdays') ? out : adjustWeekend(out);
 }
+const byDue = (a,b) => {
+  if (a.dueDate && b.dueDate) return a.dueDate < b.dueDate ? -1 : (a.dueDate > b.dueDate ? 1 : 0);
+  return a.dueDate ? -1 : (b.dueDate ? 1 : 0);
+};
 </script>
 </body>
 </html>
