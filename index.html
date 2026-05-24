@@ -1005,7 +1005,6 @@ window.selectView = async function(v) {
 
   if (v === 'dashboard') {
     document.getElementById('main-title').textContent = 'Painel';
-    addForm.style.display = 'none';
     actions.innerHTML = `<button class="refresh-btn" onclick="renderDashboard()">Atualizar</button>`;
     renderDashboard();
   } else if (v === 'all') {
