@@ -204,7 +204,7 @@
     .sub-date { border:1px solid rgba(172,164,151,.5); padding:6px 7px; font-family:'Cormorant Garamond',serif; font-size:12px; outline:none; background:var(--white); color:var(--black); }
     .sub-add-row .sub-date { flex:0 0 auto; width:140px; }
     .sub-item .sub-date { width:126px; flex-shrink:0; }
-    .qa-title { width:100%; border:none; border-bottom:1px solid var(--taupe); padding:10px 2px; font-family:'Cormorant Garamond',serif; font-size:19px; outline:none; background:transparent; color:var(--black); }
+    .qa-title { width:100%; border:none; border-bottom:1px solid var(--taupe); padding:6px 2px 12px; font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:400; outline:none; background:transparent; color:var(--black); }
     .qa-title::placeholder { color:var(--taupe); font-style:italic; }
     .qa-title:focus { border-bottom-color:var(--green); }
     .bullet-dot { color:var(--green); font-size:16px; line-height:1; flex-shrink:0; }
@@ -532,8 +532,7 @@
 <!-- ══ QUICK ADD MODAL ══ -->
 <div id="qa-modal" class="overlay" style="display:none;">
   <div class="modal qa-box">
-    <h3>Nova tarefa</h3>
-    <input id="qa-title" class="qa-title" type="text" placeholder="O que precisas de fazer?">
+    <input id="qa-title" class="qa-title" type="text" placeholder="Nova tarefa…">
 
     <div class="qa-row">
       <div class="qa-col"><label class="qa-label">Prioridade</label>
