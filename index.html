@@ -201,6 +201,11 @@
     .sub-add-row { display:flex; gap:8px; margin-top:8px; }
     .sub-add-row input { flex:1; border:1px solid rgba(172,164,151,.5); padding:8px 10px; font-family:'Cormorant Garamond',serif; font-size:14px; outline:none; background:var(--white); color:var(--black); }
     .sub-add-row button { background:var(--green); color:var(--cream); border:none; width:34px; font-size:18px; cursor:pointer; flex-shrink:0; }
+    .sub-date { border:1px solid rgba(172,164,151,.5); padding:6px 7px; font-family:'Cormorant Garamond',serif; font-size:12px; outline:none; background:var(--white); color:var(--black); }
+    .sub-add-row .sub-date { flex:0 0 auto; width:140px; }
+    .sub-item .sub-date { width:126px; flex-shrink:0; }
+    .qa-title { width:100%; min-height:74px; border:1px solid rgba(172,164,151,.55); padding:10px 12px; font-family:'Cormorant Garamond',serif; font-size:16px; resize:vertical; outline:none; background:var(--white); color:var(--black); line-height:1.5; }
+    .qa-title:focus { border-color:var(--green); }
     .sub-bar-wrap { height:3px; background:rgba(172,164,151,.3); margin-top:10px; }
     .sub-bar { height:100%; background:var(--green); width:0; transition:width .2s; }
     .tm-actions { display:flex; gap:8px; margin-top:24px; flex-wrap:wrap; }
@@ -511,7 +516,7 @@
     <h3>Nova tarefa</h3>
     <div class="field">
       <label>Tarefa</label>
-      <input id="qa-title" type="text" placeholder="O que precisas de fazer?" onkeydown="if(event.key==='Enter')createQuickTask()">
+      <textarea id="qa-title" class="qa-title" placeholder="Descreve a tarefa…"></textarea>
     </div>
     <div class="field-row">
       <div class="field"><label>Prioridade</label>
@@ -526,6 +531,15 @@
     </div>
     <div class="field" id="qa-dept-wrap" style="display:none"><label>Departamento</label>
       <select id="qa-dept" style="width:100%"></select>
+    </div>
+    <div class="field">
+      <label>Subtarefas (cada uma com data opcional)</label>
+      <div id="qa-subs"></div>
+      <div class="sub-add-row">
+        <input id="qa-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){qaAddSub();event.preventDefault();}">
+        <input type="date" id="qa-sub-date" class="sub-date" title="Data da subtarefa">
+        <button onclick="qaAddSub()">+</button>
+      </div>
     </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeQuickAdd()">Cancelar</button>
@@ -591,6 +605,7 @@
       <div class="sub-bar-wrap" id="tm-sub-bar-wrap" style="display:none"><div class="sub-bar" id="tm-sub-bar"></div></div>
       <div class="sub-add-row">
         <input id="tm-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){addSubtask();event.preventDefault();}">
+        <input type="date" id="tm-sub-date" class="sub-date" title="Data da subtarefa">
         <button onclick="addSubtask()">+</button>
       </div>
     </div>
@@ -860,15 +875,23 @@ function renderSubtasks(subs) {
     <div class="sub-item ${s.done?'done':''}">
       <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
       <span class="sub-text">${esc(s.text)}</span>
+      <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
       <button class="sub-del" onclick="removeSub(${i})">✕</button>
     </div>`).join('');
 }
 window.addSubtask = () => {
   const inp = document.getElementById('tm-sub-input');
+  const dateInp = document.getElementById('tm-sub-date');
   const val = inp.value.trim(); const t = curTask();
   if (!val || !t) return;
-  inp.value = '';
-  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:[...(t.subtasks||[]), {text:val, done:false}]});
+  let due = dateInp.value || null; if (due) due = adjustWeekend(due);
+  inp.value = ''; dateInp.value = '';
+  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:[...(t.subtasks||[]), {text:val, done:false, due}]});
+};
+window.setSubDue = (i, value) => {
+  const t = curTask(); if (!t) return;
+  let due = value || null; if (due) due = adjustWeekend(due);
+  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:(t.subtasks||[]).map((s,idx) => idx===i ? {...s, due} : s)});
 };
 window.toggleSub = (i) => {
   const t = curTask(); if (!t) return;
@@ -1130,10 +1153,32 @@ window.openSidebar  = () => { document.getElementById('sidebar').classList.add('
 window.closeSidebar = () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mob-overlay').classList.remove('show'); };
 
 // ── Render: Dashboard ──────────────────────────────────────────────────────
+let qaSubs = [];
+window.qaAddSub = () => {
+  const inp = document.getElementById('qa-sub-input');
+  const dateInp = document.getElementById('qa-sub-date');
+  const val = inp.value.trim(); if (!val) return;
+  let due = dateInp.value || null; if (due) due = adjustWeekend(due);
+  qaSubs.push({text:val, done:false, due});
+  inp.value = ''; dateInp.value = '';
+  qaRenderSubs();
+};
+window.qaRemoveSub = (i) => { qaSubs.splice(i,1); qaRenderSubs(); };
+function qaRenderSubs() {
+  document.getElementById('qa-subs').innerHTML = qaSubs.map((s,i) => `
+    <div class="sub-item">
+      <span class="sub-text">${esc(s.text)}</span>
+      ${s.due ? `<span class="due">${fmtDate(s.due)}</span>` : ''}
+      <button class="sub-del" onclick="qaRemoveSub(${i})">✕</button>
+    </div>`).join('');
+}
 window.openQuickAdd = () => {
   document.getElementById('qa-title').value = '';
   document.getElementById('qa-priority').value = '';
   document.getElementById('qa-date').value = '';
+  document.getElementById('qa-sub-input').value = '';
+  document.getElementById('qa-sub-date').value = '';
+  qaSubs = []; qaRenderSubs();
   qaFillLists();
   document.getElementById('qa-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('qa-title').focus(), 80);
@@ -1164,9 +1209,10 @@ window.createQuickTask = async () => {
     dueDate,
     listId: document.getElementById('qa-list').value || null,
     department: document.getElementById('qa-dept').value || null,
-    startDate: null, status: 'todo', notes: '', subtasks: [], repeat: null,
+    startDate: null, status: 'todo', notes: '', subtasks: qaSubs.slice(), repeat: null,
     completed: false, createdAt: serverTimestamp()
   });
+  qaSubs = [];
   closeQuickAdd();
   showToast('Tarefa criada');
 };
