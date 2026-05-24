@@ -1,0 +1,6 @@
+firebase.exe
+deploy.zip
+dist/
+_fb*.txt
+firebase.json
+.firebaserc
