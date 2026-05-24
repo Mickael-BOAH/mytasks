@@ -217,6 +217,8 @@
     .color-dot.sel { border-color:var(--black); transform:scale(1.12); }
 
     /* ── Dashboard ──────────────────────────────────────────────────────── */
+    .dash-newtask { width:100%; background:var(--green); color:var(--cream); border:none; padding:15px; font-family:'Cormorant Garamond',serif; font-size:12px; letter-spacing:.22em; text-transform:uppercase; cursor:pointer; margin-bottom:16px; transition:opacity .15s; }
+    .dash-newtask:hover { opacity:.85; }
     .dash-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
     .kpi { background:var(--white); border:1px solid rgba(172,164,151,.3); padding:18px 16px; }
     .kpi .num { font-size:34px; font-weight:300; line-height:1; color:var(--green); }
@@ -1098,6 +1100,10 @@ window.openSidebar  = () => { document.getElementById('sidebar').classList.add('
 window.closeSidebar = () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mob-overlay').classList.remove('show'); };
 
 // ── Render: Dashboard ──────────────────────────────────────────────────────
+window.focusNewTask = () => {
+  const el = document.getElementById('new-title');
+  if (el) { el.focus(); el.scrollIntoView({block:'center'}); }
+};
 window.renderDashboard = async function() {
   const wrap = document.getElementById('tasks-wrap');
   const today = todayStr();
@@ -1164,7 +1170,8 @@ window.renderDashboard = async function() {
     <div class="stat-row"><span>Por fazer</span><span class="v">${cnt('todo')}</span></div>
     <div class="stat-row"><span>Alta prioridade</span><span class="v" style="color:#7a3030">${alta}</span></div>`;
 
-  wrap.innerHTML = `${kpis}
+  wrap.innerHTML = `<button class="dash-newtask" onclick="focusNewTask()">＋ Nova tarefa</button>
+    ${kpis}
     ${orphanCard}
     <div class="dash-card"><h4>Foco de hoje</h4>${focusHtml}</div>
     <div class="dash-grid">
