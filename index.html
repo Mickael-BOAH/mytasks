@@ -505,6 +505,35 @@
   </div>
 </div>
 
+<!-- ══ QUICK ADD MODAL ══ -->
+<div id="qa-modal" class="overlay" style="display:none;">
+  <div class="modal">
+    <h3>Nova tarefa</h3>
+    <div class="field">
+      <label>Tarefa</label>
+      <input id="qa-title" type="text" placeholder="O que precisas de fazer?" onkeydown="if(event.key==='Enter')createQuickTask()">
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Prioridade</label>
+        <select id="qa-priority" style="width:100%"><option value="">—</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>
+      </div>
+      <div class="field"><label>Data fim</label>
+        <input id="qa-date" type="date" style="width:100%">
+      </div>
+    </div>
+    <div class="field"><label>Lista</label>
+      <select id="qa-list" style="width:100%" onchange="qaListChange()"></select>
+    </div>
+    <div class="field" id="qa-dept-wrap" style="display:none"><label>Departamento</label>
+      <select id="qa-dept" style="width:100%"></select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeQuickAdd()">Cancelar</button>
+      <button class="btn-add btn-ok" onclick="createQuickTask()">Criar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ TASK DETAIL MODAL ══ -->
 <div id="task-modal" class="overlay" style="display:none;">
   <div class="modal task-modal">
@@ -1041,6 +1070,7 @@ window.selectView = async function(v) {
 
   if (v === 'dashboard') {
     document.getElementById('main-title').textContent = 'Painel';
+    addForm.style.display = 'none';
     actions.innerHTML = `<button class="refresh-btn" onclick="renderDashboard()">Atualizar</button>`;
     renderDashboard();
   } else if (v === 'all') {
@@ -1100,9 +1130,45 @@ window.openSidebar  = () => { document.getElementById('sidebar').classList.add('
 window.closeSidebar = () => { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mob-overlay').classList.remove('show'); };
 
 // ── Render: Dashboard ──────────────────────────────────────────────────────
-window.focusNewTask = () => {
-  const el = document.getElementById('new-title');
-  if (el) { el.focus(); el.scrollIntoView({block:'center'}); }
+window.openQuickAdd = () => {
+  document.getElementById('qa-title').value = '';
+  document.getElementById('qa-priority').value = '';
+  document.getElementById('qa-date').value = '';
+  qaFillLists();
+  document.getElementById('qa-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('qa-title').focus(), 80);
+};
+window.closeQuickAdd = () => document.getElementById('qa-modal').style.display = 'none';
+function qaFillLists() {
+  const ls = document.getElementById('qa-list');
+  ls.innerHTML = '<option value="">— Sem lista —</option>' + lists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+  ls.value = '';
+  qaFillDept();
+}
+function qaFillDept() {
+  const list = lists.find(l => l.id === document.getElementById('qa-list').value);
+  const depts = list?.departments || [];
+  const ds = document.getElementById('qa-dept');
+  document.getElementById('qa-dept-wrap').style.display = depts.length ? '' : 'none';
+  ds.innerHTML = depts.length ? '<option value="">— Sem departamento —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') : '';
+}
+window.qaListChange = qaFillDept;
+window.createQuickTask = async () => {
+  const title = document.getElementById('qa-title').value.trim();
+  if (!title) return;
+  let dueDate = document.getElementById('qa-date').value || null;
+  if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) { dueDate = a; showToast('Fim de semana → movido para sexta-feira'); } }
+  await addDoc(collection(db,'tasks'), {
+    title,
+    priority: document.getElementById('qa-priority').value || null,
+    dueDate,
+    listId: document.getElementById('qa-list').value || null,
+    department: document.getElementById('qa-dept').value || null,
+    startDate: null, status: 'todo', notes: '', subtasks: [], repeat: null,
+    completed: false, createdAt: serverTimestamp()
+  });
+  closeQuickAdd();
+  showToast('Tarefa criada');
 };
 window.renderDashboard = async function() {
   const wrap = document.getElementById('tasks-wrap');
@@ -1170,7 +1236,7 @@ window.renderDashboard = async function() {
     <div class="stat-row"><span>Por fazer</span><span class="v">${cnt('todo')}</span></div>
     <div class="stat-row"><span>Alta prioridade</span><span class="v" style="color:#7a3030">${alta}</span></div>`;
 
-  wrap.innerHTML = `<button class="dash-newtask" onclick="focusNewTask()">＋ Nova tarefa</button>
+  wrap.innerHTML = `<button class="dash-newtask" onclick="openQuickAdd()">＋ Nova tarefa</button>
     ${kpis}
     ${orphanCard}
     <div class="dash-card"><h4>Foco de hoje</h4>${focusHtml}</div>
