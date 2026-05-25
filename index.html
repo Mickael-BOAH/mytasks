@@ -179,14 +179,14 @@
     .btn-cancel:hover { border-color:var(--green); }
     .btn-ok { flex:1; }
     /* ── Task detail modal ──────────────────────────────────────────────── */
-    .task-modal { max-width:480px; max-height:88vh; overflow-y:auto; }
-    .tm-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:22px; }
-    .tm-title { flex:1; border:none; border-bottom:1px solid rgba(172,164,151,.5); background:transparent; font-family:'Cormorant Garamond',serif; font-size:22px; padding:4px 0; outline:none; color:var(--black); }
-    .tm-title:focus { border-color:var(--green); }
-    .tm-close { background:none; border:none; font-size:19px; cursor:pointer; color:var(--taupe); line-height:1; padding:4px; }
+    .task-modal { position:relative; max-width:500px; max-height:90vh; overflow-y:auto; }
+    .tm-close { position:absolute; top:16px; right:18px; background:none; border:none; font-size:20px; cursor:pointer; color:var(--taupe); line-height:1; padding:4px; z-index:1; }
     .tm-close:hover { color:var(--green); }
-    .tm-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+    .tm-title { width:100%; border:none; border-bottom:1px solid rgba(172,164,151,.5); background:transparent; font-family:'Cormorant Garamond',serif; font-size:21px; line-height:1.35; padding:2px 34px 12px 0; margin-bottom:8px; outline:none; color:var(--black); resize:none; overflow:hidden; }
+    .tm-title:focus { border-bottom-color:var(--green); }
+    .tm-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
     .tm-grid select, .tm-grid input { width:100%; }
+    @media (max-width:680px) { .tm-grid { grid-template-columns:1fr; } }
     .tm-notes { width:100%; min-height:70px; border:1px solid rgba(172,164,151,.55); padding:10px 12px; font-family:'Cormorant Garamond',serif; font-size:15px; resize:vertical; outline:none; background:var(--white); color:var(--black); line-height:1.6; }
     .tm-notes:focus { border-color:var(--green); }
     .sub-item { display:flex; align-items:center; gap:10px; padding:7px 0; }
@@ -555,10 +555,8 @@
 <!-- ══ TASK DETAIL MODAL ══ -->
 <div id="task-modal" class="overlay" style="display:none;">
   <div class="modal task-modal">
-    <div class="tm-head">
-      <input id="tm-title" class="tm-title" onchange="saveTaskField('title', this.value)">
-      <button class="tm-close" onclick="closeTaskModal()">✕</button>
-    </div>
+    <button class="tm-close" onclick="closeTaskModal()">✕</button>
+    <textarea id="tm-title" class="tm-title" rows="1" oninput="tmAutoGrow(this)" onchange="saveTaskField('title', this.value)"></textarea>
     <div class="tm-grid">
       <div class="field" style="margin:0"><label>Estado</label>
         <select id="tm-status" onchange="saveTaskField('status', this.value)">
@@ -843,7 +841,9 @@ window.openTask = (id) => {
   fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
   document.getElementById('task-modal').style.display = 'flex';
+  setTimeout(() => tmAutoGrow(document.getElementById('tm-title')), 0);
 };
+window.tmAutoGrow = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
 window.closeTaskModal = () => { currentTaskId = null; document.getElementById('task-modal').style.display = 'none'; };
 window.saveTaskField = (field, value) => {
   if (!currentTaskId) return;
