@@ -150,6 +150,14 @@
     .email-task-btn:hover { border-color:var(--green); color:var(--green); }
 
     /* ── Add form ───────────────────────────────────────────────────────── */
+    .filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 30px; border-bottom:1px solid rgba(172,164,151,.25); background:var(--cream); flex-shrink:0; }
+    .f-search { flex:1; min-width:150px; border:1px solid rgba(172,164,151,.5); padding:8px 12px; font-family:'Cormorant Garamond',serif; font-size:14px; outline:none; background:var(--white); color:var(--black); }
+    .f-search:focus { border-color:var(--green); }
+    .f-chip { background:transparent; border:1px solid rgba(172,164,151,.5); padding:7px 14px; font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; color:var(--taupe); transition:all .12s; white-space:nowrap; }
+    .f-chip:hover { border-color:var(--green); color:var(--green); }
+    .f-chip.active { background:var(--green); color:var(--cream); border-color:var(--green); }
+    .f-clear { background:none; border:none; color:#7a3030; font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; white-space:nowrap; }
+    @media (max-width:680px) { .filter-bar { padding:10px 16px; } }
     .add-form { padding:16px 30px 24px; border-top:1px solid rgba(172,164,151,.3); background:var(--cream); flex-shrink:0; }
     .add-row { display:flex; }
     .add-input { flex:1; border:1px solid rgba(172,164,151,.55); border-right:none; padding:11px 14px; font-size:16px; outline:none; font-family:'Cormorant Garamond',serif; background:var(--white); color:var(--black); letter-spacing:.01em; }
@@ -481,6 +489,27 @@
     <div class="header-dot" id="header-dot"></div>
     <h2 id="main-title">Todas</h2>
     <div id="header-actions" style="display:flex;gap:8px;"></div>
+  </div>
+
+  <div class="filter-bar" id="filter-bar" style="display:none;">
+    <input id="f-search" class="f-search" placeholder="Procurar…" oninput="applyFilters()">
+    <select id="f-status" onchange="applyFilters()">
+      <option value="">Estado: todos</option>
+      <option value="todo">Por fazer</option>
+      <option value="doing">Em curso</option>
+      <option value="blocked">Bloqueada</option>
+      <option value="waiting">À espera</option>
+      <option value="done">Concluída</option>
+    </select>
+    <select id="f-priority" onchange="applyFilters()">
+      <option value="">Prioridade: todas</option>
+      <option value="alta">Alta</option>
+      <option value="media">Média</option>
+      <option value="baixa">Baixa</option>
+    </select>
+    <button class="f-chip" id="f-today" onclick="toggleQuick('today')">Hoje</button>
+    <button class="f-chip" id="f-overdue" onclick="toggleQuick('overdue')">Vencidas</button>
+    <button class="f-clear" id="f-clear" onclick="clearFilters()" style="display:none">Limpar</button>
   </div>
 
   <div class="tasks-wrap" id="tasks-wrap">
@@ -1091,6 +1120,10 @@ window.selectView = async function(v) {
   actions.innerHTML = '';
   addForm.style.display = 'flex';
 
+  const showFilters = (v === 'all' || v === 'today' || !!lists.find(x => x.id === v));
+  document.getElementById('filter-bar').style.display = showFilters ? 'flex' : 'none';
+  resetFilters();
+
   if (v === 'dashboard') {
     document.getElementById('main-title').textContent = 'Painel';
     addForm.style.display = 'none';
@@ -1338,11 +1371,49 @@ window.renderDashboard = async function() {
 };
 
 // ── Render: Tasks ──────────────────────────────────────────────────────────
+let filters = { text:'', status:'', priority:'', today:false, overdue:false };
+const filtersActive = () => !!(filters.text || filters.status || filters.priority || filters.today || filters.overdue);
+window.applyFilters = () => {
+  filters.text = document.getElementById('f-search').value.trim().toLowerCase();
+  filters.status = document.getElementById('f-status').value;
+  filters.priority = document.getElementById('f-priority').value;
+  document.getElementById('f-clear').style.display = filtersActive() ? '' : 'none';
+  renderTasks();
+};
+window.toggleQuick = (k) => {
+  filters[k] = !filters[k];
+  document.getElementById('f-'+k).classList.toggle('active', filters[k]);
+  applyFilters();
+};
+window.clearFilters = () => {
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-status').value = '';
+  document.getElementById('f-priority').value = '';
+  filters.today = filters.overdue = false;
+  document.getElementById('f-today').classList.remove('active');
+  document.getElementById('f-overdue').classList.remove('active');
+  applyFilters();
+};
+function resetFilters() {
+  filters = { text:'', status:'', priority:'', today:false, overdue:false };
+  const s = document.getElementById('f-search'); if (!s) return;
+  s.value = ''; document.getElementById('f-status').value = ''; document.getElementById('f-priority').value = '';
+  document.getElementById('f-today').classList.remove('active');
+  document.getElementById('f-overdue').classList.remove('active');
+  document.getElementById('f-clear').style.display = 'none';
+}
 function filtered() {
   const today = todayStr();
-  if (view === 'all')   return tasks;
-  if (view === 'today') return tasks.filter(t => t.dueDate === today);
-  return tasks.filter(t => t.listId === view);
+  let base;
+  if (view === 'all') base = tasks;
+  else if (view === 'today') base = tasks.filter(t => t.dueDate === today);
+  else base = tasks.filter(t => t.listId === view);
+  if (filters.text) base = base.filter(t => (t.title||'').toLowerCase().includes(filters.text) || (t.notes||'').toLowerCase().includes(filters.text) || (t.subtasks||[]).some(s => (s.text||'').toLowerCase().includes(filters.text)));
+  if (filters.status) base = base.filter(t => (t.status||'todo') === filters.status);
+  if (filters.priority) base = base.filter(t => t.priority === filters.priority);
+  if (filters.today) base = base.filter(t => t.dueDate === today);
+  if (filters.overdue) base = base.filter(t => t.dueDate && t.dueDate < today && !t.completed);
+  return base;
 }
 
 function renderTasks() {
@@ -1353,7 +1424,7 @@ function renderTasks() {
   const currentList = lists.find(l => l.id === view);
   const depts = currentList?.departments;
 
-  if (depts?.length) {
+  if (depts?.length && !filtersActive()) {
     const group = (name, idx, da, dd) => {
       const key = view + '::' + idx;
       const collapsed = collapsedDepts.has(key);
