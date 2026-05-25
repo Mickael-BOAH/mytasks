@@ -224,7 +224,7 @@
     .sub-date { border:1px solid rgba(172,164,151,.5); padding:6px 7px; font-family:'Cormorant Garamond',serif; font-size:12px; outline:none; background:var(--white); color:var(--black); }
     .sub-add-row .sub-date { flex:0 0 auto; width:140px; }
     .sub-item .sub-date { width:126px; flex-shrink:0; }
-    .qa-title { width:100%; border:none; border-bottom:1px solid var(--taupe); padding:6px 2px 12px; font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:400; outline:none; background:transparent; color:var(--black); }
+    .qa-title { width:100%; border:none; border-bottom:1px solid var(--taupe); padding:6px 2px 12px; font-family:'Cormorant Garamond',serif; font-size:23px; font-weight:400; line-height:1.3; outline:none; background:transparent; color:var(--black); resize:none; overflow:hidden; }
     .qa-title::placeholder { color:var(--taupe); font-style:italic; }
     .qa-title:focus { border-bottom-color:var(--green); }
     .bullet-dot { color:var(--green); font-size:16px; line-height:1; flex-shrink:0; }
@@ -293,6 +293,21 @@
     .sub-deadline { cursor:pointer; }
     .sub-mark { color:var(--taupe); font-size:14px; margin-top:2px; flex-shrink:0; width:17px; text-align:center; }
     .due-parent { font-size:11px; color:var(--taupe); font-style:italic; }
+    .tpl-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(172,164,151,.15); }
+    .tpl-row:last-child { border-bottom:none; }
+    .tpl-name { flex:1; font-size:15px; }
+    .tpl-count { font-size:12px; color:var(--taupe); }
+    .focus-chev { background:none; border:none; cursor:pointer; color:var(--taupe); font-size:12px; padding:0 8px; align-self:center; flex-shrink:0; }
+    .focus-chev:hover { color:var(--green); }
+    .focus-subs { padding:2px 0 12px 46px; }
+    .focus-sub { display:flex; align-items:center; gap:9px; padding:4px 0; font-size:14px; }
+    .focus-sub.done .focus-sub-text { text-decoration:line-through; color:var(--taupe); }
+    .focus-sub-text { flex:1; min-width:0; }
+    .sub-text-edit { flex:1; min-width:0; border:none; background:transparent; font-family:'Cormorant Garamond',serif; font-size:15px; color:var(--black); outline:none; padding:2px 0; border-bottom:1px solid transparent; }
+    .sub-text-edit:focus { border-bottom-color:rgba(172,164,151,.6); }
+    .sub-item.done .sub-text-edit { text-decoration:line-through; color:var(--taupe); }
+    .done-toggle { cursor:pointer; user-select:none; }
+    .done-toggle:hover span { color:var(--green); }
     @media (max-width:680px) { .dash-kpis { grid-template-columns:repeat(2,1fr); } }
 
     /* ── Toast ──────────────────────────────────────────────────────────── */
@@ -456,6 +471,9 @@
     <div class="add-list-row" onclick="openAddList()">
       <span style="font-size:18px;font-weight:200;line-height:1">+</span> Nova lista
     </div>
+    <div class="add-list-row" onclick="openTpl()">
+      <span style="font-size:13px;line-height:1">▤</span> Modelos
+    </div>
 
     <!-- Google views (hidden until connected) -->
     <div id="google-nav" style="display:none;">
@@ -567,7 +585,7 @@
   <div class="modal qa-box">
     <div class="tm-cols">
       <div class="tm-main">
-        <input id="qa-title" class="qa-title" type="text" placeholder="Nova tarefa…">
+        <textarea id="qa-title" class="qa-title" rows="1" placeholder="Nova tarefa…" oninput="tmAutoGrow(this)"></textarea>
         <div class="field" style="margin-top:18px">
           <label>Subtarefas — cada uma com data opcional</label>
           <div id="qa-subs"></div>
@@ -588,11 +606,34 @@
         <div class="field"><label>Data limite</label><input id="qa-date" type="date"></div>
         <div class="field"><label>Lista</label><select id="qa-list" onchange="qaListChange()"></select></div>
         <div class="field" id="qa-dept-wrap" style="display:none"><label>Departamento</label><select id="qa-dept"></select></div>
+        <div class="field" id="qa-template-wrap" style="display:none"><label>Usar modelo</label><select id="qa-template" onchange="qaApplyTemplate()"></select></div>
         <div class="tm-actions">
           <button class="tm-act-btn" onclick="createQuickTask()">Criar tarefa</button>
           <button class="tm-act-btn ghost" onclick="closeQuickAdd()">Cancelar</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TEMPLATES MODAL ══ -->
+<div id="tpl-modal" class="overlay" style="display:none;">
+  <div class="modal" style="max-width:460px;">
+    <h3>Modelos de checklist</h3>
+    <div id="tpl-existing"></div>
+    <div class="field" style="margin-top:18px"><label>Novo modelo — nome</label>
+      <input id="tpl-name" type="text" placeholder="Ex: Fecho do mês">
+    </div>
+    <div class="field"><label>Passos</label>
+      <div id="tpl-steps"></div>
+      <div class="sub-add-row">
+        <input id="tpl-step-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){tplAddStep();event.preventDefault();}">
+        <button onclick="tplAddStep()">+</button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTpl()">Fechar</button>
+      <button class="btn-add btn-ok" onclick="saveTemplate()">Guardar modelo</button>
     </div>
   </div>
 </div>
@@ -685,6 +726,9 @@ let pickedColor = '#233b34';
 let accessToken = null, tokenClient = null, schedulingTask = null;
 let editingListId = null, pendingDepts = [];
 let collapsedDepts = new Set();
+let templates = [], tplSteps = [];
+let expandedFocus = new Set();
+let doneOpen = false;
 let currentTaskId = null;
 const STATUS = {
   todo:    {label:'Por fazer'},
@@ -775,6 +819,10 @@ function subscribe() {
     updateBadges();
     document.getElementById('sync-status').textContent = '● Sincronizado';
   });
+  onSnapshot(query(collection(db,'templates'), orderBy('createdAt')), snap => {
+    templates = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    if (document.getElementById('tpl-modal').style.display === 'flex') renderTplExisting();
+  }, () => {});
 }
 
 // ── List CRUD ──────────────────────────────────────────────────────────────
@@ -938,11 +986,16 @@ function renderSubtasks(subs) {
   document.getElementById('tm-subs').innerHTML = subs.map((s,i) => `
     <div class="sub-item ${s.done?'done':''}">
       <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
-      <span class="sub-text">${esc(s.text)}</span>
+      <input class="sub-text-edit" value="${esc(s.text)}" onchange="setSubText(${i}, this.value)">
       <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
       <button class="sub-del" onclick="removeSub(${i})">✕</button>
     </div>`).join('');
 }
+window.setSubText = (i, value) => {
+  const t = curTask(); if (!t) return;
+  const v = value.trim(); if (!v) { renderSubtasks(t.subtasks||[]); return; }
+  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:(t.subtasks||[]).map((s,idx) => idx===i ? {...s, text:v} : s)});
+};
 window.addSubtask = () => {
   const inp = document.getElementById('tm-sub-input');
   const dateInp = document.getElementById('tm-sub-date');
@@ -1214,7 +1267,8 @@ window.openQuickAdd = () => {
   document.getElementById('qa-sub-date').value = '';
   const qn = document.getElementById('qa-notes'); qn.value = ''; qn.style.height = 'auto';
   qaSubs = []; qaRenderSubs();
-  qaFillLists();
+  qaFillLists(); qaFillTemplates();
+  document.getElementById('qa-title').style.height = 'auto';
   document.getElementById('qa-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('qa-title').focus(), 80);
 };
@@ -1233,6 +1287,49 @@ function qaFillDept() {
   ds.innerHTML = depts.length ? '<option value="">— Sem departamento —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') : '';
 }
 window.qaListChange = qaFillDept;
+function qaFillTemplates() {
+  const w = document.getElementById('qa-template-wrap');
+  const s = document.getElementById('qa-template');
+  if (!templates.length) { w.style.display = 'none'; return; }
+  w.style.display = '';
+  s.innerHTML = '<option value="">— Aplicar modelo —</option>' + templates.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  s.value = '';
+}
+window.qaApplyTemplate = () => {
+  const t = templates.find(x => x.id === document.getElementById('qa-template').value);
+  document.getElementById('qa-template').value = '';
+  if (!t) return;
+  (t.steps || []).forEach(step => qaSubs.push({text:step, done:false, due:null}));
+  qaRenderSubs();
+  showToast('Modelo aplicado: ' + t.name);
+};
+// ── Templates (Modelos) ─────────────────────────────────────────────────────
+window.openTpl = () => {
+  tplSteps = [];
+  document.getElementById('tpl-name').value = '';
+  document.getElementById('tpl-step-input').value = '';
+  renderTplSteps(); renderTplExisting();
+  document.getElementById('tpl-modal').style.display = 'flex';
+};
+window.closeTpl = () => document.getElementById('tpl-modal').style.display = 'none';
+window.tplAddStep = () => { const i = document.getElementById('tpl-step-input'); const v = i.value.trim(); if (!v) return; tplSteps.push(v); i.value = ''; renderTplSteps(); };
+window.tplRemoveStep = (idx) => { tplSteps.splice(idx,1); renderTplSteps(); };
+function renderTplSteps() {
+  document.getElementById('tpl-steps').innerHTML = tplSteps.map((s,i) => `<div class="sub-item"><span class="bullet-dot">•</span><span class="sub-text">${esc(s)}</span><button class="sub-del" onclick="tplRemoveStep(${i})">✕</button></div>`).join('');
+}
+function renderTplExisting() {
+  document.getElementById('tpl-existing').innerHTML = templates.length
+    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name">${esc(t.name)}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
+    : '<div class="dash-empty" style="padding:0 0 4px">Ainda não tens modelos. Cria um abaixo.</div>';
+}
+window.saveTemplate = async () => {
+  const name = document.getElementById('tpl-name').value.trim();
+  if (!name || !tplSteps.length) { showToast('Dá um nome e pelo menos um passo'); return; }
+  await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), createdAt:serverTimestamp()});
+  tplSteps = []; document.getElementById('tpl-name').value = ''; renderTplSteps();
+  showToast('Modelo guardado');
+};
+window.deleteTemplate = async (id) => { await deleteDoc(doc(db,'templates',id)); };
 window.createQuickTask = async () => {
   const title = document.getElementById('qa-title').value.trim();
   if (!title) return;
@@ -1251,21 +1348,44 @@ window.createQuickTask = async () => {
   closeQuickAdd();
   showToast('Tarefa criada');
 };
-function subDeadlineHtml(t, s) {
+function focusRow(t) {
   const today = todayStr();
-  let cls = 'due', lbl = fmtDate(s.due);
-  if (s.due < today) { cls = 'due late'; lbl += ' — vencida'; }
-  else if (s.due === today) { cls = 'due today-due'; lbl = 'Hoje'; }
+  const subs = t.subtasks || [];
+  const open = expandedFocus.has(t.id);
+  let dueHtml = '';
+  if (t.dueDate) {
+    let cls = 'due', lbl = fmtDate(t.dueDate);
+    if (t.dueDate < today) { cls = 'due late'; lbl += ' — vencida'; }
+    else if (t.dueDate === today) { cls = 'due today-due'; lbl = 'Hoje'; }
+    dueHtml = `<span class="${cls}">${lbl}</span>`;
+  }
+  const pMap = {alta:'Alta', media:'Média', baixa:'Baixa'};
+  const priHtml = t.priority ? `<span class="badge p-${t.priority}">${pMap[t.priority]}</span>` : '';
   const l = lists.find(x => x.id === t.listId);
   const tag = l ? `<span class="list-tag" style="background:${l.color}18;color:${l.color}">${esc(l.name)}</span>` : '';
-  return `<div class="task sub-deadline" onclick="openTask('${t.id}')">
-    <div class="sub-mark">↳</div>
-    <div class="task-body">
-      <div class="task-title" style="font-size:15px">${esc(s.text)}</div>
-      <div class="task-meta"><span class="due-parent">de: ${esc(t.title)}</span><span class="${cls}">${lbl}</span>${tag}</div>
+  const doneN = subs.filter(s => s.done).length;
+  const subProg = subs.length ? `<span class="sub-prog">✓ ${doneN}/${subs.length}</span>` : '';
+  const chev = subs.length ? `<button class="focus-chev" onclick="event.stopPropagation();toggleFocusSub('${t.id}')">${open?'▾':'▸'}</button>` : '';
+  let html = `<div class="task ${t.completed?'done':''}">
+    <div class="check ${t.completed?'checked':''}" onclick="toggleTask('${t.id}',${t.completed})"></div>
+    <div class="task-body" onclick="openTask('${t.id}')">
+      <div class="task-title">${esc(t.title)}</div>
+      <div class="task-meta">${priHtml}${dueHtml}${subProg}${tag}</div>
     </div>
+    ${chev}
+    <button class="del-btn" onclick="deleteTask('${t.id}')" title="Apagar">✕</button>
   </div>`;
+  if (subs.length && open) {
+    html += `<div class="focus-subs">` + subs.map(s => {
+      let sdue = '';
+      if (s.due) { let c = 'due'; if (s.due < today && !s.done) c = 'due late'; else if (s.due === today) c = 'due today-due'; sdue = `<span class="${c}">${fmtDate(s.due)}</span>`; }
+      return `<div class="focus-sub ${s.done?'done':''}"><span class="bullet-dot">•</span><span class="focus-sub-text">${esc(s.text)}</span>${sdue}</div>`;
+    }).join('') + `</div>`;
+  }
+  return html;
 }
+window.toggleFocusSub = (id) => { expandedFocus.has(id) ? expandedFocus.delete(id) : expandedFocus.add(id); renderDashboard(); };
+window.toggleDone = () => { doneOpen = !doneOpen; renderTasks(); };
 window.renderDashboard = async function() {
   const wrap = document.getElementById('tasks-wrap');
   const today = todayStr();
@@ -1284,11 +1404,14 @@ window.renderDashboard = async function() {
     <div class="kpi"><div class="num">${doneWeek.length}</div><div class="lbl">Concluídas 7d</div></div>
   </div>`;
 
-  const focusItems = [];
-  [...overdue, ...todayT].forEach(t => focusItems.push({date:t.dueDate, html:taskHtml(t)}));
-  active.forEach(t => (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due <= today) focusItems.push({date:s.due, html:subDeadlineHtml(t,s)}); }));
-  focusItems.sort((a,b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
-  const focusHtml = focusItems.length ? focusItems.map(x => x.html).join('')
+  const focusKey = t => {
+    let k = (t.dueDate && t.dueDate <= today) ? t.dueDate : '9999';
+    (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due <= today && s.due < k) k = s.due; });
+    return k;
+  };
+  const focusParents = active.filter(t => (t.dueDate && t.dueDate <= today) || (t.subtasks||[]).some(s => s.due && !s.done && s.due <= today))
+    .sort((a,b) => focusKey(a) < focusKey(b) ? -1 : 1);
+  const focusHtml = focusParents.length ? focusParents.map(focusRow).join('')
     : `<div class="dash-empty">Sem tarefas vencidas nem para hoje. Tudo em dia. ✦</div>`;
 
   // Ação necessária — tarefas sem lista (todas devem pertencer a uma unidade)
@@ -1298,13 +1421,14 @@ window.renderDashboard = async function() {
     : '';
 
   // Prazos · próximos 7 dias (tarefas + subtarefas, a vencer)
-  const upcomingItems = [];
-  active.forEach(t => {
-    if (t.dueDate && t.dueDate > today && t.dueDate <= wEnd) upcomingItems.push({date:t.dueDate, html:taskHtml(t)});
-    (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due > today && s.due <= wEnd) upcomingItems.push({date:s.due, html:subDeadlineHtml(t,s)}); });
-  });
-  upcomingItems.sort((a,b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0));
-  const upcomingHtml = upcomingItems.length ? upcomingItems.map(x => x.html).join('')
+  const upKey = t => {
+    let k = (t.dueDate && t.dueDate > today && t.dueDate <= wEnd) ? t.dueDate : '9999';
+    (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due > today && s.due <= wEnd && s.due < k) k = s.due; });
+    return k;
+  };
+  const upParents = active.filter(t => (t.dueDate && t.dueDate > today && t.dueDate <= wEnd) || (t.subtasks||[]).some(s => s.due && !s.done && s.due > today && s.due <= wEnd))
+    .sort((a,b) => upKey(a) < upKey(b) ? -1 : 1);
+  const upcomingHtml = upParents.length ? upParents.map(focusRow).join('')
     : `<div class="dash-empty">Sem prazos nos próximos 7 dias.</div>`;
 
   // A precisar de atenção (bloqueadas + à espera)
@@ -1429,7 +1553,7 @@ function renderTasks() {
       const key = view + '::' + idx;
       const collapsed = collapsedDepts.has(key);
       let body = da.map(taskHtml).join('');
-      if (dd.length) body += `<div class="section-label" style="padding-left:42px"><span>Concluídas — ${dd.length}</span><div class="line"></div></div>` + dd.map(taskHtml).join('');
+      if (dd.length) body += `<div class="section-label done-toggle" style="padding-left:42px" onclick="toggleDone()"><span>${doneOpen?'▾':'▸'} Concluídas — ${dd.length}</span><div class="line"></div></div>` + (doneOpen ? dd.map(taskHtml).join('') : '');
       if (!da.length && !dd.length) body = `<div class="dept-empty">Sem tarefas.</div>`;
       return `<div class="dept-drop ${collapsed?'collapsed':''}">
         <div class="dept-drop-hdr" onclick="toggleDept(${idx})">
@@ -1455,7 +1579,7 @@ function renderTasks() {
     return;
   }
   wrap.innerHTML = active.map(taskHtml).join('') +
-    (done.length ? `<div class="section-label"><span>Concluídas — ${done.length}</span><div class="line"></div></div>` + done.map(taskHtml).join('') : '');
+    (done.length ? `<div class="section-label done-toggle" onclick="toggleDone()"><span>${doneOpen?'▾':'▸'} Concluídas — ${done.length}</span><div class="line"></div></div>` + (doneOpen ? done.map(taskHtml).join('') : '') : '');
 }
 window.toggleDept = (idx) => {
   const key = view + '::' + idx;
