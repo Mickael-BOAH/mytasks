@@ -795,7 +795,9 @@ function boot(cfg) {
 }
 function startApp() {
   if (!appStarted) { appStarted = true; subscribe(); setTimeout(() => selectView('dashboard'), 0); }
+  document.getElementById('google-nav').style.display = 'block';
   restoreGoogleToken();
+  if (!accessToken) document.getElementById('google-connect-btn').style.display = 'block';
 }
 function restoreGoogleToken() {
   try {
@@ -1147,6 +1149,9 @@ window.doLogin = async () => {
       accessToken = cred.accessToken;
       localStorage.setItem('myt-gtok', JSON.stringify({token: accessToken, expiry: Date.now() + 3540000}));
       onGoogleConnected();
+      showToast('Google ligado ✓');
+      if (view === 'calendar') reloadCalendar();
+      else if (view === 'emails') reloadEmails();
     }
   } catch (e) {
     if (err) { err.style.display = 'block'; err.textContent = 'Não foi possível entrar. Tenta novamente.'; }
@@ -1167,10 +1172,13 @@ function onGoogleConnected() {
   document.getElementById('google-connect-btn').style.display = 'none';
   document.getElementById('google-connected-status').style.display = 'block';
   document.getElementById('google-nav').style.display = 'block';
-  showToast('Google ligado com sucesso');
   // Re-render tasks to show schedule button
   if (['all','today'].includes(view) || lists.find(l=>l.id===view)) renderTasks();
 }
+function googleReconnectHtml(what) {
+  return `<div class="empty-state"><div class="ico">◷</div><p>A ligação à Google expirou (renova a cada hora).<br>Reconecta para veres ${what}.</p><button class="refresh-btn" style="margin-top:16px" onclick="reconnectGoogle()">Reconectar Google</button></div>`;
+}
+window.reconnectGoogle = async () => { await doLogin(); };
 
 // ── Calendar ───────────────────────────────────────────────────────────────
 async function fetchCalendarEvents() {
@@ -1311,26 +1319,28 @@ window.selectView = async function(v) {
 
 window.reloadCalendar = async function() {
   const wrap = document.getElementById('tasks-wrap');
+  if (!accessToken) { wrap.innerHTML = googleReconnectHtml('a agenda'); return; }
   wrap.innerHTML = `<div class="loading-state">A carregar eventos…</div>`;
   try {
     const events = await fetchCalendarEvents();
     renderCalendarView(events);
   } catch {
-    wrap.innerHTML = `<div class="empty-state"><div class="ico">—</div><p>Erro ao carregar. O token pode ter expirado.<br>Volta a ligar ao Google no sidebar.</p></div>`;
     googleExpired();
+    wrap.innerHTML = googleReconnectHtml('a agenda');
   }
 };
 
 window.reloadEmails = async function() {
   const wrap = document.getElementById('tasks-wrap');
+  if (!accessToken) { wrap.innerHTML = googleReconnectHtml('os emails'); return; }
   wrap.innerHTML = `<div class="loading-state">A carregar emails…</div>`;
   try {
     const emails = await fetchEmails();
     document.getElementById('b-emails').textContent = emails.length || '';
     renderEmailView(emails);
   } catch {
-    wrap.innerHTML = `<div class="empty-state"><div class="ico">—</div><p>Erro ao carregar emails.</p></div>`;
     googleExpired();
+    wrap.innerHTML = googleReconnectHtml('os emails');
   }
 };
 
