@@ -297,6 +297,8 @@
     .tpl-row:last-child { border-bottom:none; }
     .tpl-name { flex:1; font-size:15px; }
     .tpl-count { font-size:12px; color:var(--taupe); }
+    .tpl-monthly-row { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--black); cursor:pointer; margin:14px 0 0; }
+    .tpl-monthly-row input { width:auto; }
     .focus-chev { background:none; border:none; cursor:pointer; color:var(--taupe); font-size:12px; padding:0 8px; align-self:center; flex-shrink:0; }
     .focus-chev:hover { color:var(--green); }
     .focus-subs { padding:2px 0 12px 46px; }
@@ -606,6 +608,7 @@
         <div class="field"><label>Data limite</label><input id="qa-date" type="date"></div>
         <div class="field"><label>Lista</label><select id="qa-list" onchange="qaListChange()"></select></div>
         <div class="field" id="qa-dept-wrap" style="display:none"><label>Departamento</label><select id="qa-dept"></select></div>
+        <div class="field"><label>Repetir</label><select id="qa-repeat"><option value="">Não repete</option><option value="daily">Diariamente</option><option value="weekdays">Dias úteis</option><option value="weekly">Semanalmente</option><option value="monthly">Mensalmente</option><option value="yearly">Anualmente</option></select></div>
         <div class="field" id="qa-template-wrap" style="display:none"><label>Usar modelo</label><select id="qa-template" onchange="qaApplyTemplate()"></select></div>
         <div class="tm-actions">
           <button class="tm-act-btn" onclick="createQuickTask()">Criar tarefa</button>
@@ -628,9 +631,11 @@
       <div id="tpl-steps"></div>
       <div class="sub-add-row">
         <input id="tpl-step-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){tplAddStep();event.preventDefault();}">
+        <input type="number" id="tpl-step-day" class="sub-date" min="1" max="31" placeholder="dia" style="width:62px">
         <button onclick="tplAddStep()">+</button>
       </div>
     </div>
+    <label class="tpl-monthly-row"><input type="checkbox" id="tpl-monthly"> Recorrente mensal (gera todos os meses)</label>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeTpl()">Fechar</button>
       <button class="btn-add btn-ok" onclick="saveTemplate()">Guardar modelo</button>
@@ -914,7 +919,7 @@ window.toggleTask = async (id, cur) => {
         startDate: t.startDate ? nextDate(t.startDate, t.repeat) : null,
         listId: t.listId || null, department: t.department || null,
         repeat: t.repeat, status: 'todo', notes: t.notes || '',
-        subtasks: (t.subtasks || []).map(s => ({text: s.text, done: false})),
+        subtasks: (t.subtasks || []).map(s => ({text: s.text, done: false, due: s.due ? nextDate(s.due, t.repeat) : null})),
         completed: false, createdAt: serverTimestamp()
       });
       showToast('Próxima ocorrência: ' + fmtDate(nd));
@@ -1262,6 +1267,7 @@ function qaRenderSubs() {
 window.openQuickAdd = () => {
   document.getElementById('qa-title').value = '';
   document.getElementById('qa-priority').value = '';
+  document.getElementById('qa-repeat').value = '';
   document.getElementById('qa-date').value = '';
   document.getElementById('qa-sub-input').value = '';
   document.getElementById('qa-sub-date').value = '';
@@ -1295,38 +1301,62 @@ function qaFillTemplates() {
   s.innerHTML = '<option value="">— Aplicar modelo —</option>' + templates.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
   s.value = '';
 }
+function monthDayDate(year, month, day) {
+  const last = new Date(year, month+1, 0).getDate();
+  return adjustWeekend(fmtISO(new Date(year, month, Math.min(day, last))));
+}
 window.qaApplyTemplate = () => {
   const t = templates.find(x => x.id === document.getElementById('qa-template').value);
   document.getElementById('qa-template').value = '';
   if (!t) return;
-  (t.steps || []).forEach(step => qaSubs.push({text:step, done:false, due:null}));
+  const now = new Date(), yr = now.getFullYear(), mo = now.getMonth();
+  let maxDue = null;
+  (t.steps || []).forEach(step => {
+    const text = typeof step === 'string' ? step : step.text;
+    const day  = typeof step === 'string' ? null : step.day;
+    const due  = day ? monthDayDate(yr, mo, day) : null;
+    if (due && (!maxDue || due > maxDue)) maxDue = due;
+    qaSubs.push({text, done:false, due});
+  });
+  if (t.monthly) {
+    document.getElementById('qa-repeat').value = 'monthly';
+    if (maxDue) document.getElementById('qa-date').value = maxDue;
+  }
   qaRenderSubs();
-  showToast('Modelo aplicado: ' + t.name);
+  showToast('Modelo aplicado: ' + t.name + (t.monthly ? ' (mensal)' : ''));
 };
 // ── Templates (Modelos) ─────────────────────────────────────────────────────
 window.openTpl = () => {
   tplSteps = [];
   document.getElementById('tpl-name').value = '';
   document.getElementById('tpl-step-input').value = '';
+  document.getElementById('tpl-step-day').value = '';
+  document.getElementById('tpl-monthly').checked = false;
   renderTplSteps(); renderTplExisting();
   document.getElementById('tpl-modal').style.display = 'flex';
 };
 window.closeTpl = () => document.getElementById('tpl-modal').style.display = 'none';
-window.tplAddStep = () => { const i = document.getElementById('tpl-step-input'); const v = i.value.trim(); if (!v) return; tplSteps.push(v); i.value = ''; renderTplSteps(); };
+window.tplAddStep = () => {
+  const i = document.getElementById('tpl-step-input'); const v = i.value.trim(); if (!v) return;
+  const dayEl = document.getElementById('tpl-step-day'); const day = parseInt(dayEl.value);
+  tplSteps.push({text:v, day: (day >= 1 && day <= 31) ? day : null});
+  i.value = ''; dayEl.value = ''; renderTplSteps();
+};
 window.tplRemoveStep = (idx) => { tplSteps.splice(idx,1); renderTplSteps(); };
 function renderTplSteps() {
-  document.getElementById('tpl-steps').innerHTML = tplSteps.map((s,i) => `<div class="sub-item"><span class="bullet-dot">•</span><span class="sub-text">${esc(s)}</span><button class="sub-del" onclick="tplRemoveStep(${i})">✕</button></div>`).join('');
+  document.getElementById('tpl-steps').innerHTML = tplSteps.map((s,i) => `<div class="sub-item"><span class="bullet-dot">•</span><span class="sub-text">${esc(s.text)}</span>${s.day?`<span class="due">dia ${s.day}</span>`:''}<button class="sub-del" onclick="tplRemoveStep(${i})">✕</button></div>`).join('');
 }
 function renderTplExisting() {
   document.getElementById('tpl-existing').innerHTML = templates.length
-    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name">${esc(t.name)}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
+    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
     : '<div class="dash-empty" style="padding:0 0 4px">Ainda não tens modelos. Cria um abaixo.</div>';
 }
 window.saveTemplate = async () => {
   const name = document.getElementById('tpl-name').value.trim();
   if (!name || !tplSteps.length) { showToast('Dá um nome e pelo menos um passo'); return; }
-  await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), createdAt:serverTimestamp()});
-  tplSteps = []; document.getElementById('tpl-name').value = ''; renderTplSteps();
+  const monthly = document.getElementById('tpl-monthly').checked;
+  await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), monthly, createdAt:serverTimestamp()});
+  tplSteps = []; document.getElementById('tpl-name').value = ''; document.getElementById('tpl-monthly').checked = false; renderTplSteps();
   showToast('Modelo guardado');
 };
 window.deleteTemplate = async (id) => { await deleteDoc(doc(db,'templates',id)); };
@@ -1341,7 +1371,7 @@ window.createQuickTask = async () => {
     dueDate,
     listId: document.getElementById('qa-list').value || null,
     department: document.getElementById('qa-dept').value || null,
-    startDate: null, status: 'todo', notes: document.getElementById('qa-notes').value.trim(), subtasks: qaSubs.slice(), repeat: null,
+    startDate: null, status: 'todo', notes: document.getElementById('qa-notes').value.trim(), subtasks: qaSubs.slice(), repeat: document.getElementById('qa-repeat').value || null,
     completed: false, createdAt: serverTimestamp()
   });
   qaSubs = [];
