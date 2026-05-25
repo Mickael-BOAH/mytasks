@@ -299,6 +299,8 @@
     .tpl-count { font-size:12px; color:var(--taupe); }
     .tpl-monthly-row { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--black); cursor:pointer; margin:14px 0 0; }
     .tpl-monthly-row input { width:auto; }
+    .tpl-use { background:var(--green); color:var(--cream); border:none; padding:5px 13px; font-family:'Cormorant Garamond',serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; transition:opacity .15s; }
+    .tpl-use:hover { opacity:.85; }
     .focus-chev { background:none; border:none; cursor:pointer; color:var(--taupe); font-size:12px; padding:0 8px; align-self:center; flex-shrink:0; }
     .focus-chev:hover { color:var(--green); }
     .focus-subs { padding:2px 0 12px 46px; }
@@ -827,7 +829,8 @@ function subscribe() {
   onSnapshot(query(collection(db,'templates'), orderBy('createdAt')), snap => {
     templates = snap.docs.map(d => ({id:d.id, ...d.data()}));
     if (document.getElementById('tpl-modal').style.display === 'flex') renderTplExisting();
-  }, () => {});
+    if (document.getElementById('qa-modal').style.display === 'flex') qaFillTemplates();
+  }, (e) => { showToast('Modelos — erro: ' + (e.code || 'leitura')); });
 }
 
 // ── List CRUD ──────────────────────────────────────────────────────────────
@@ -1305,10 +1308,7 @@ function monthDayDate(year, month, day) {
   const last = new Date(year, month+1, 0).getDate();
   return adjustWeekend(fmtISO(new Date(year, month, Math.min(day, last))));
 }
-window.qaApplyTemplate = () => {
-  const t = templates.find(x => x.id === document.getElementById('qa-template').value);
-  document.getElementById('qa-template').value = '';
-  if (!t) return;
+function applyTemplate(t) {
   const now = new Date(), yr = now.getFullYear(), mo = now.getMonth();
   let maxDue = null;
   (t.steps || []).forEach(step => {
@@ -1324,6 +1324,19 @@ window.qaApplyTemplate = () => {
   }
   qaRenderSubs();
   showToast('Modelo aplicado: ' + t.name + (t.monthly ? ' (mensal)' : ''));
+}
+window.qaApplyTemplate = () => {
+  const t = templates.find(x => x.id === document.getElementById('qa-template').value);
+  document.getElementById('qa-template').value = '';
+  if (t) applyTemplate(t);
+};
+window.useTemplate = (id) => {
+  const t = templates.find(x => x.id === id); if (!t) return;
+  closeTpl();
+  openQuickAdd();
+  document.getElementById('qa-title').value = t.name;
+  applyTemplate(t);
+  setTimeout(() => tmAutoGrow(document.getElementById('qa-title')), 0);
 };
 // ── Templates (Modelos) ─────────────────────────────────────────────────────
 window.openTpl = () => {
@@ -1348,16 +1361,20 @@ function renderTplSteps() {
 }
 function renderTplExisting() {
   document.getElementById('tpl-existing').innerHTML = templates.length
-    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
+    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="tpl-use" onclick="useTemplate('${t.id}')">Usar</button><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
     : '<div class="dash-empty" style="padding:0 0 4px">Ainda não tens modelos. Cria um abaixo.</div>';
 }
 window.saveTemplate = async () => {
   const name = document.getElementById('tpl-name').value.trim();
   if (!name || !tplSteps.length) { showToast('Dá um nome e pelo menos um passo'); return; }
   const monthly = document.getElementById('tpl-monthly').checked;
-  await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), monthly, createdAt:serverTimestamp()});
-  tplSteps = []; document.getElementById('tpl-name').value = ''; document.getElementById('tpl-monthly').checked = false; renderTplSteps();
-  showToast('Modelo guardado');
+  try {
+    await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), monthly, createdAt:serverTimestamp()});
+    tplSteps = []; document.getElementById('tpl-name').value = ''; document.getElementById('tpl-monthly').checked = false; renderTplSteps();
+    showToast('Modelo guardado ✓');
+  } catch (e) {
+    showToast('Erro ao guardar: ' + (e.code || e.message));
+  }
 };
 window.deleteTemplate = async (id) => { await deleteDoc(doc(db,'templates',id)); };
 window.createQuickTask = async () => {
