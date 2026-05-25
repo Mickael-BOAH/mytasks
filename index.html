@@ -1290,9 +1290,9 @@ window.renderDashboard = async function() {
     ${kpis}
     ${orphanCard}
     <div class="dash-card"><h4>Foco de hoje</h4>${focusHtml}</div>
+    <div class="dash-card"><h4>A precisar de atenção</h4>${attentionHtml}</div>
+    <div class="dash-card"><h4>Prazos · próximos 7 dias</h4>${upcomingHtml}</div>
     <div class="dash-grid">
-      <div class="dash-card"><h4>Prazos · próximos 7 dias</h4>${upcomingHtml}</div>
-      <div class="dash-card"><h4>A precisar de atenção</h4>${attentionHtml}</div>
       <div class="dash-card"><h4>Por unidade</h4>${unitHtml}</div>
       <div class="dash-card"><h4>Estado &amp; prioridade</h4>${stateHtml}</div>
       <div class="dash-card" id="dash-events"><h4>Próximos eventos</h4><div class="dash-empty">${accessToken?'A carregar…':'Liga ao Google (sidebar) para veres a agenda.'}</div></div>
