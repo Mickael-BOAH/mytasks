@@ -71,6 +71,9 @@
     .nav-section { font-size:8.5px; letter-spacing:.22em; text-transform:uppercase; color:rgba(226,223,214,.28); padding:18px 22px 6px; }
     .add-list-row { display:flex; align-items:center; gap:10px; padding:10px 22px; cursor:pointer; color:rgba(226,223,214,.3); font-size:14px; font-style:italic; transition:color .12s; }
     .add-list-row:hover { color:rgba(226,223,214,.6); }
+    .tpl-nav-item { padding:7px 22px 7px 42px; cursor:pointer; font-size:13px; color:rgba(226,223,214,.5); transition:color .12s; letter-spacing:.02em; }
+    .tpl-nav-item:hover { color:rgba(226,223,214,.85); }
+    .tpl-nav-item::before { content:'▤'; font-size:10px; opacity:.5; margin-right:8px; }
     .sb-footer { padding:10px 22px 16px; border-top:1px solid rgba(226,223,214,.08); }
     .sb-status { font-size:9px; color:rgba(226,223,214,.25); letter-spacing:.12em; text-transform:uppercase; }
     .google-btn { display:block; margin-top:8px; background:transparent; border:1px solid rgba(226,223,214,.2); padding:8px 12px; color:rgba(226,223,214,.5); font-family:'Cormorant Garamond',serif; font-size:10px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; width:100%; text-align:left; transition:all .15s; }
@@ -478,6 +481,7 @@
     <div class="add-list-row" onclick="openTpl()">
       <span style="font-size:13px;line-height:1">▤</span> Modelos
     </div>
+    <div id="tpl-nav"></div>
 
     <!-- Google views (hidden until connected) -->
     <div id="google-nav" style="display:none;">
@@ -626,7 +630,7 @@
   <div class="modal" style="max-width:460px;">
     <h3>Modelos de checklist</h3>
     <div id="tpl-existing"></div>
-    <div class="field" style="margin-top:18px"><label>Novo modelo — nome</label>
+    <div class="field" style="margin-top:18px"><label id="tpl-form-label">Novo modelo — nome</label>
       <input id="tpl-name" type="text" placeholder="Ex: Fecho do mês">
     </div>
     <div class="field"><label>Passos</label>
@@ -640,7 +644,7 @@
     <label class="tpl-monthly-row"><input type="checkbox" id="tpl-monthly"> Recorrente mensal (gera todos os meses)</label>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeTpl()">Fechar</button>
-      <button class="btn-add btn-ok" onclick="saveTemplate()">Guardar modelo</button>
+      <button class="btn-add btn-ok" id="tpl-save-btn" onclick="saveTemplate()">Guardar modelo</button>
     </div>
   </div>
 </div>
@@ -733,7 +737,7 @@ let pickedColor = '#233b34';
 let accessToken = null, tokenClient = null, schedulingTask = null;
 let editingListId = null, pendingDepts = [];
 let collapsedDepts = new Set();
-let templates = [], tplSteps = [];
+let templates = [], tplSteps = [], editingTplId = null;
 let expandedFocus = new Set();
 let doneOpen = false;
 let currentTaskId = null;
@@ -828,6 +832,7 @@ function subscribe() {
   });
   onSnapshot(query(collection(db,'templates'), orderBy('createdAt')), snap => {
     templates = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    renderTplNav();
     if (document.getElementById('tpl-modal').style.display === 'flex') renderTplExisting();
     if (document.getElementById('qa-modal').style.display === 'flex') qaFillTemplates();
   }, (e) => { showToast('Modelos — erro: ' + (e.code || 'leitura')); });
@@ -1339,12 +1344,32 @@ window.useTemplate = (id) => {
   setTimeout(() => tmAutoGrow(document.getElementById('qa-title')), 0);
 };
 // ── Templates (Modelos) ─────────────────────────────────────────────────────
+function renderTplNav() {
+  const el = document.getElementById('tpl-nav'); if (!el) return;
+  el.innerHTML = templates.map(t => `<div class="tpl-nav-item" onclick="openEditTpl('${t.id}')">${esc(t.name)}</div>`).join('');
+}
 window.openTpl = () => {
+  editingTplId = null;
   tplSteps = [];
   document.getElementById('tpl-name').value = '';
   document.getElementById('tpl-step-input').value = '';
   document.getElementById('tpl-step-day').value = '';
   document.getElementById('tpl-monthly').checked = false;
+  document.getElementById('tpl-form-label').textContent = 'Novo modelo — nome';
+  document.getElementById('tpl-save-btn').textContent = 'Guardar modelo';
+  renderTplSteps(); renderTplExisting();
+  document.getElementById('tpl-modal').style.display = 'flex';
+};
+window.openEditTpl = (id) => {
+  const t = templates.find(x => x.id === id); if (!t) return;
+  editingTplId = id;
+  tplSteps = (t.steps || []).map(s => typeof s === 'string' ? {text:s, day:null} : {text:s.text, day:s.day});
+  document.getElementById('tpl-name').value = t.name;
+  document.getElementById('tpl-monthly').checked = !!t.monthly;
+  document.getElementById('tpl-step-input').value = '';
+  document.getElementById('tpl-step-day').value = '';
+  document.getElementById('tpl-form-label').textContent = 'Editar modelo — nome';
+  document.getElementById('tpl-save-btn').textContent = 'Atualizar modelo';
   renderTplSteps(); renderTplExisting();
   document.getElementById('tpl-modal').style.display = 'flex';
 };
@@ -1361,7 +1386,7 @@ function renderTplSteps() {
 }
 function renderTplExisting() {
   document.getElementById('tpl-existing').innerHTML = templates.length
-    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="tpl-use" onclick="useTemplate('${t.id}')">Usar</button><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
+    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name" style="cursor:pointer" onclick="openEditTpl('${t.id}')" title="Editar">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="tpl-use" onclick="useTemplate('${t.id}')">Usar</button><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
     : '<div class="dash-empty" style="padding:0 0 4px">Ainda não tens modelos. Cria um abaixo.</div>';
 }
 window.saveTemplate = async () => {
@@ -1369,9 +1394,18 @@ window.saveTemplate = async () => {
   if (!name || !tplSteps.length) { showToast('Dá um nome e pelo menos um passo'); return; }
   const monthly = document.getElementById('tpl-monthly').checked;
   try {
-    await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), monthly, createdAt:serverTimestamp()});
-    tplSteps = []; document.getElementById('tpl-name').value = ''; document.getElementById('tpl-monthly').checked = false; renderTplSteps();
-    showToast('Modelo guardado ✓');
+    if (editingTplId) {
+      await updateDoc(doc(db,'templates',editingTplId), {name, steps:tplSteps.slice(), monthly});
+      showToast('Modelo atualizado ✓');
+    } else {
+      await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), monthly, createdAt:serverTimestamp()});
+      showToast('Modelo guardado ✓');
+    }
+    editingTplId = null; tplSteps = [];
+    document.getElementById('tpl-name').value = ''; document.getElementById('tpl-monthly').checked = false;
+    document.getElementById('tpl-form-label').textContent = 'Novo modelo — nome';
+    document.getElementById('tpl-save-btn').textContent = 'Guardar modelo';
+    renderTplSteps();
   } catch (e) {
     showToast('Erro ao guardar: ' + (e.code || e.message));
   }
