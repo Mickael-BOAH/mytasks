@@ -187,8 +187,9 @@
     .tm-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
     .tm-grid select, .tm-grid input { width:100%; }
     @media (max-width:680px) { .tm-grid { grid-template-columns:1fr; } }
-    .tm-notes { width:100%; min-height:70px; border:1px solid rgba(172,164,151,.55); padding:10px 12px; font-family:'Cormorant Garamond',serif; font-size:15px; resize:vertical; outline:none; background:var(--white); color:var(--black); line-height:1.6; }
-    .tm-notes:focus { border-color:var(--green); }
+    .note-field { width:100%; min-height:24px; border:none; border-bottom:1px solid rgba(172,164,151,.35); padding:6px 2px; font-family:'Cormorant Garamond',serif; font-size:14px; line-height:1.6; resize:none; overflow:hidden; outline:none; background:transparent; color:var(--black); }
+    .note-field:focus { border-bottom-color:var(--green); }
+    .note-field::placeholder { color:var(--taupe); font-style:italic; }
     .sub-item { display:flex; align-items:center; gap:10px; padding:7px 0; }
     .sub-item.done .sub-text { text-decoration:line-through; color:var(--taupe); }
     .sub-check { width:15px; height:15px; border:1px solid var(--taupe); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
@@ -545,6 +546,10 @@
         <button onclick="qaAddSub()">+</button>
       </div>
     </div>
+    <div class="qa-section">
+      <label class="qa-label">Notas</label>
+      <textarea id="qa-notes" class="note-field" rows="1" placeholder="Notas, contexto…" oninput="tmAutoGrow(this)"></textarea>
+    </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeQuickAdd()">Cancelar</button>
       <button class="btn-add btn-ok" onclick="createQuickTask()">Criar tarefa</button>
@@ -598,10 +603,7 @@
         <option value="yearly">Anualmente</option>
       </select>
     </div>
-    <div class="field"><label>Notas</label>
-      <textarea id="tm-notes" class="tm-notes" placeholder="Contexto, links, decisões…" onchange="saveTaskField('notes', this.value)"></textarea>
-    </div>
-    <div class="field" style="margin-bottom:0">
+    <div class="field">
       <label>Subtarefas <span id="tm-sub-progress" class="sub-prog"></span></label>
       <div id="tm-subs"></div>
       <div class="sub-bar-wrap" id="tm-sub-bar-wrap" style="display:none"><div class="sub-bar" id="tm-sub-bar"></div></div>
@@ -610,6 +612,9 @@
         <input type="date" id="tm-sub-date" class="sub-date" title="Data da subtarefa">
         <button onclick="addSubtask()">+</button>
       </div>
+    </div>
+    <div class="field" style="margin-bottom:0"><label>Notas</label>
+      <textarea id="tm-notes" class="note-field" rows="1" placeholder="Notas, contexto, links…" oninput="tmAutoGrow(this)" onchange="saveTaskField('notes', this.value)"></textarea>
     </div>
     <div class="tm-actions">
       <button class="tm-act-btn" onclick="taskToCalendar()">⊞ Bloquear no calendário</button>
@@ -841,7 +846,7 @@ window.openTask = (id) => {
   fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
   document.getElementById('task-modal').style.display = 'flex';
-  setTimeout(() => tmAutoGrow(document.getElementById('tm-title')), 0);
+  setTimeout(() => { tmAutoGrow(document.getElementById('tm-title')); tmAutoGrow(document.getElementById('tm-notes')); }, 0);
 };
 window.tmAutoGrow = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
 window.closeTaskModal = () => { currentTaskId = null; document.getElementById('task-modal').style.display = 'none'; };
@@ -1159,6 +1164,7 @@ window.openQuickAdd = () => {
   document.getElementById('qa-date').value = '';
   document.getElementById('qa-sub-input').value = '';
   document.getElementById('qa-sub-date').value = '';
+  const qn = document.getElementById('qa-notes'); qn.value = ''; qn.style.height = 'auto';
   qaSubs = []; qaRenderSubs();
   qaFillLists();
   document.getElementById('qa-modal').style.display = 'flex';
@@ -1190,7 +1196,7 @@ window.createQuickTask = async () => {
     dueDate,
     listId: document.getElementById('qa-list').value || null,
     department: document.getElementById('qa-dept').value || null,
-    startDate: null, status: 'todo', notes: '', subtasks: qaSubs.slice(), repeat: null,
+    startDate: null, status: 'todo', notes: document.getElementById('qa-notes').value.trim(), subtasks: qaSubs.slice(), repeat: null,
     completed: false, createdAt: serverTimestamp()
   });
   qaSubs = [];
