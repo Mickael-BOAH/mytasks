@@ -310,9 +310,17 @@
     .focus-sub { display:flex; align-items:center; gap:9px; padding:4px 0; font-size:14px; }
     .focus-sub.done .focus-sub-text { text-decoration:line-through; color:var(--taupe); }
     .focus-sub-text { flex:1; min-width:0; }
-    .sub-text-edit { flex:1; min-width:0; border:none; background:transparent; font-family:'Cormorant Garamond',serif; font-size:15px; color:var(--black); outline:none; padding:2px 0; border-bottom:1px solid transparent; }
+    .sub-text-edit { flex:1; min-width:0; border:none; background:transparent; font-family:'Cormorant Garamond',serif; font-size:15px; line-height:1.4; color:var(--black); outline:none; padding:2px 0; resize:none; overflow:hidden; border-bottom:1px solid transparent; }
     .sub-text-edit:focus { border-bottom-color:rgba(172,164,151,.6); }
-    .sub-item.done .sub-text-edit { text-decoration:line-through; color:var(--taupe); }
+    .sub-block { padding:10px 0; border-bottom:1px solid rgba(172,164,151,.18); }
+    .sub-block:last-child { border-bottom:none; }
+    .sub-head { display:flex; align-items:flex-start; gap:10px; }
+    .sub-head .sub-check { margin-top:3px; }
+    .sub-head .sub-text-edit { flex:1 1 auto; min-width:0; width:auto; }
+    .sub-head .sub-date { flex:0 0 auto; width:118px; }
+    .sub-block.done .sub-text-edit { text-decoration:line-through; color:var(--taupe); }
+    .sub-notes { margin:6px 0 0 27px; font-size:13px; min-height:20px; }
+    .sub-notes::placeholder { color:var(--taupe); font-style:italic; }
     .done-toggle { cursor:pointer; user-select:none; }
     .done-toggle:hover span { color:var(--green); }
     @media (max-width:680px) { .dash-kpis { grid-template-columns:repeat(2,1fr); } }
@@ -711,8 +719,12 @@
           </select>
         </div>
         <div class="tm-actions">
-          <button class="tm-act-btn" onclick="taskToCalendar()">⊞ Bloquear no calendário</button>
+          <button class="tm-act-btn" onclick="saveTaskModal()">✓ Guardar alterações</button>
+          <button class="tm-act-btn ghost" onclick="taskToCalendar()">⊞ Bloquear no calendário</button>
           <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up por email</button>
+          <button class="tm-act-btn ghost" onclick="exportTaskWord()">⤓ Exportar Word</button>
+          <button class="tm-act-btn ghost" onclick="showMakeSub()">↳ Tornar subtarefa</button>
+          <select id="tm-parent" style="display:none;width:100%;margin-top:4px" onchange="makeSubtaskOf(this.value)"></select>
           <button class="tm-act-btn danger" onclick="deleteTaskFromModal()">Apagar</button>
         </div>
       </div>
@@ -823,10 +835,7 @@ function subscribe() {
     tasks = snap.docs.map(d => ({id:d.id, ...d.data()}));
     if (view === 'dashboard') renderDashboard();
     else if (['all','today'].includes(view) || lists.find(l=>l.id===view)) renderTasks();
-    if (currentTaskId && document.getElementById('task-modal').style.display === 'flex') {
-      const t = curTask();
-      if (t) renderSubtasks(t.subtasks || []); else closeTaskModal();
-    }
+    if (currentTaskId && document.getElementById('task-modal').style.display === 'flex' && !curTask()) closeTaskModal();
     updateBadges();
     document.getElementById('sync-status').textContent = '● Sincronizado';
   });
@@ -927,7 +936,7 @@ window.toggleTask = async (id, cur) => {
         startDate: t.startDate ? nextDate(t.startDate, t.repeat) : null,
         listId: t.listId || null, department: t.department || null,
         repeat: t.repeat, status: 'todo', notes: t.notes || '',
-        subtasks: (t.subtasks || []).map(s => ({text: s.text, done: false, due: s.due ? nextDate(s.due, t.repeat) : null})),
+        subtasks: (t.subtasks || []).map(s => ({text: s.text, done: false, due: s.due ? nextDate(s.due, t.repeat) : null, notes: ''})),
         completed: false, createdAt: serverTimestamp()
       });
       showToast('Próxima ocorrência: ' + fmtDate(nd));
@@ -950,8 +959,9 @@ window.openTask = (id) => {
   document.getElementById('tm-repeat').value   = t.repeat || '';
   fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
+  document.getElementById('tm-parent').style.display = 'none';
   document.getElementById('task-modal').style.display = 'flex';
-  setTimeout(() => { tmAutoGrow(document.getElementById('tm-title')); tmAutoGrow(document.getElementById('tm-notes')); }, 0);
+  setTimeout(() => { tmAutoGrow(document.getElementById('tm-title')); tmAutoGrow(document.getElementById('tm-notes')); document.querySelectorAll('#tm-subs textarea').forEach(tmAutoGrow); }, 0);
 };
 window.tmAutoGrow = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
 window.closeTaskModal = () => { currentTaskId = null; document.getElementById('task-modal').style.display = 'none'; };
@@ -992,46 +1002,96 @@ window.onTaskListChange = function() {
   fillTaskModalDept('');
 };
 function renderSubtasks(subs) {
-  const done = subs.filter(s => s.done).length;
-  document.getElementById('tm-sub-progress').textContent = subs.length ? `${done}/${subs.length}` : '';
-  document.getElementById('tm-sub-bar-wrap').style.display = subs.length ? 'block' : 'none';
-  document.getElementById('tm-sub-bar').style.width = (subs.length ? Math.round(done/subs.length*100) : 0) + '%';
   document.getElementById('tm-subs').innerHTML = subs.map((s,i) => `
-    <div class="sub-item ${s.done?'done':''}">
-      <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
-      <input class="sub-text-edit" value="${esc(s.text)}" onchange="setSubText(${i}, this.value)">
-      <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
-      <button class="sub-del" onclick="removeSub(${i})">✕</button>
+    <div class="sub-block ${s.done?'done':''}">
+      <div class="sub-head">
+        <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
+        <textarea class="sub-text-edit" rows="1" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.text)}</textarea>
+        <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
+        <button class="sub-del" onclick="removeSub(${i})">✕</button>
+      </div>
+      <textarea class="sub-notes note-field" rows="1" placeholder="Notas / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
     </div>`).join('');
+  updateSubProgress();
+  document.querySelectorAll('#tm-subs textarea').forEach(tmAutoGrow);
 }
-window.setSubText = (i, value) => {
-  const t = curTask(); if (!t) return;
-  const v = value.trim(); if (!v) { renderSubtasks(t.subtasks||[]); return; }
-  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:(t.subtasks||[]).map((s,idx) => idx===i ? {...s, text:v} : s)});
-};
+function readSubsFromDOM() {
+  return [...document.querySelectorAll('#tm-subs .sub-block')].map(el => ({
+    text: el.querySelector('.sub-text-edit').value.trim(),
+    done: el.querySelector('.sub-check').classList.contains('checked'),
+    due:  el.querySelector('.sub-date').value || null,
+    notes: el.querySelector('.sub-notes').value
+  })).filter(s => s.text);
+}
+function updateSubProgress() {
+  const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
+  const done = blocks.filter(b => b.querySelector('.sub-check').classList.contains('checked')).length;
+  document.getElementById('tm-sub-progress').textContent = blocks.length ? `${done}/${blocks.length}` : '';
+  document.getElementById('tm-sub-bar-wrap').style.display = blocks.length ? 'block' : 'none';
+  document.getElementById('tm-sub-bar').style.width = (blocks.length ? Math.round(done/blocks.length*100) : 0) + '%';
+}
+window.saveSubs = () => { if (currentTaskId) updateDoc(doc(db,'tasks',currentTaskId), {subtasks: readSubsFromDOM()}); };
 window.addSubtask = () => {
   const inp = document.getElementById('tm-sub-input');
   const dateInp = document.getElementById('tm-sub-date');
-  const val = inp.value.trim(); const t = curTask();
-  if (!val || !t) return;
+  const val = inp.value.trim(); if (!val || !currentTaskId) return;
   let due = dateInp.value || null; if (due) due = adjustWeekend(due);
+  const subs = readSubsFromDOM(); subs.push({text:val, done:false, due, notes:''});
   inp.value = ''; dateInp.value = '';
-  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:[...(t.subtasks||[]), {text:val, done:false, due}]});
+  renderSubtasks(subs); saveSubs();
 };
 window.setSubDue = (i, value) => {
-  const t = curTask(); if (!t) return;
-  let due = value || null; if (due) due = adjustWeekend(due);
-  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:(t.subtasks||[]).map((s,idx) => idx===i ? {...s, due} : s)});
+  if (value) { const adj = adjustWeekend(value); if (adj !== value) { const el = document.querySelectorAll('#tm-subs .sub-date')[i]; if (el) el.value = adj; showToast('Fim de semana → sexta'); } }
+  saveSubs();
 };
 window.toggleSub = (i) => {
-  const t = curTask(); if (!t) return;
-  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:(t.subtasks||[]).map((s,idx) => idx===i ? {...s, done:!s.done} : s)});
+  const el = document.querySelectorAll('#tm-subs .sub-block')[i]; if (!el) return;
+  const chk = el.querySelector('.sub-check');
+  chk.classList.toggle('checked'); el.classList.toggle('done', chk.classList.contains('checked'));
+  updateSubProgress(); saveSubs();
 };
 window.removeSub = (i) => {
-  const t = curTask(); if (!t) return;
-  updateDoc(doc(db,'tasks',currentTaskId), {subtasks:(t.subtasks||[]).filter((_,idx) => idx!==i)});
+  const subs = readSubsFromDOM(); subs.splice(i,1);
+  renderSubtasks(subs); saveSubs();
 };
 window.deleteTaskFromModal = () => { if (currentTaskId) { deleteTask(currentTaskId); closeTaskModal(); } };
+window.saveTaskModal = async () => {
+  if (!currentTaskId) return;
+  const t = curTask(); if (!t) { closeTaskModal(); return; }
+  const status = document.getElementById('tm-status').value;
+  await updateDoc(doc(db,'tasks',currentTaskId), {
+    title: document.getElementById('tm-title').value.trim() || t.title,
+    status, completed: status === 'done', completedAt: status === 'done' ? (t.completedAt || Date.now()) : null,
+    priority: document.getElementById('tm-priority').value || null,
+    startDate: document.getElementById('tm-start').value || null,
+    dueDate: document.getElementById('tm-due').value || null,
+    listId: document.getElementById('tm-list').value || null,
+    department: document.getElementById('tm-dept').value || null,
+    repeat: document.getElementById('tm-repeat').value || null,
+    notes: document.getElementById('tm-notes').value,
+    subtasks: readSubsFromDOM()
+  });
+  closeTaskModal();
+  showToast('Guardado ✓');
+};
+window.showMakeSub = () => {
+  const sel = document.getElementById('tm-parent');
+  if (sel.style.display !== 'block') {
+    const others = tasks.filter(x => x.id !== currentTaskId && !x.completed);
+    sel.innerHTML = '<option value="">— escolher tarefa —</option>' + others.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('');
+    sel.style.display = 'block';
+  } else sel.style.display = 'none';
+};
+window.makeSubtaskOf = async (parentId) => {
+  if (!parentId || !currentTaskId) return;
+  const t = curTask(), p = tasks.find(x => x.id === parentId);
+  if (!t || !p) return;
+  const newSub = {text: t.title, done: !!t.completed, due: t.dueDate || null, notes: t.notes || ''};
+  await updateDoc(doc(db,'tasks',parentId), {subtasks:[...(p.subtasks||[]), newSub]});
+  await deleteTask(t.id);
+  closeTaskModal();
+  showToast('Tornada subtarefa de: ' + p.title);
+};
 window.taskToCalendar = () => {
   const t = curTask(); if (!t) return;
   if (!accessToken) { showToast('Liga ao Google primeiro (no sidebar)'); return; }
@@ -1043,6 +1103,32 @@ window.taskFollowUp = () => {
   let body = (t.notes ? t.notes + '\n\n' : '') + '— Referente à tarefa: ' + t.title;
   if (t.dueDate) body += '\n  Prazo: ' + fmtDate(t.dueDate);
   window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Follow-up: ' + t.title)}&body=${encodeURIComponent(body)}`, '_blank');
+};
+window.exportTaskWord = () => {
+  const t = curTask(); if (!t) return;
+  const pMap = {alta:'Alta', media:'Média', baixa:'Baixa'};
+  const l = lists.find(x => x.id === t.listId);
+  const meta = [];
+  if (l) meta.push(['Unidade / Lista', l.name + (t.department ? ' · ' + t.department : '')]);
+  if (t.status) meta.push(['Estado', STATUS[t.status]?.label || t.status]);
+  if (t.priority) meta.push(['Importância', pMap[t.priority]]);
+  if (t.startDate) meta.push(['Início', fmtDate(t.startDate)]);
+  if (t.dueDate) meta.push(['Prazo', fmtDate(t.dueDate)]);
+  if (t.repeat) meta.push(['Repetição', REPEAT[t.repeat] || t.repeat]);
+  const metaHtml = meta.map(m => `<p style="margin:2px 0"><b>${m[0]}:</b> ${esc(m[1])}</p>`).join('');
+  const subs = (t.subtasks||[]).map(s => `<li>${s.done?'☑':'☐'} ${esc(s.text)}${s.due?` <i>(${fmtDate(s.due)})</i>`:''}${s.notes?`<br><span style="color:#666;font-size:12px">↳ ${esc(s.notes).replace(/\n/g,'<br>↳ ')}</span>`:''}</li>`).join('');
+  const subsHtml = subs ? `<h3 style="color:#233b34">Subtarefas</h3><ul>${subs}</ul>` : '';
+  const notesHtml = t.notes ? `<h3 style="color:#233b34">Notas</h3><p>${esc(t.notes).replace(/\n/g,'<br>')}</p>` : '';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Georgia,serif;color:#262626;line-height:1.5">
+    <h1 style="color:#233b34">${esc(t.title)}</h1>${metaHtml}${notesHtml}${subsHtml}
+    <hr><p style="font-size:11px;color:#999">BOA Hotels · Gestor de Tarefas</p></body></html>`;
+  const blob = new Blob(['﻿', html], {type:'application/msword'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `Tarefa - ${(t.title||'tarefa').replace(/[\\/:*?"<>|]/g,'').slice(0,50)}.doc`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('Exportado para Word');
 };
 
 // ── Google Auth ────────────────────────────────────────────────────────────
@@ -1321,7 +1407,7 @@ function applyTemplate(t) {
     const day  = typeof step === 'string' ? null : step.day;
     const due  = day ? monthDayDate(yr, mo, day) : null;
     if (due && (!maxDue || due > maxDue)) maxDue = due;
-    qaSubs.push({text, done:false, due});
+    qaSubs.push({text, done:false, due, notes:''});
   });
   if (t.monthly) {
     document.getElementById('qa-repeat').value = 'monthly';
