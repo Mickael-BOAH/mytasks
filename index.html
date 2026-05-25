@@ -179,7 +179,19 @@
     .btn-cancel:hover { border-color:var(--green); }
     .btn-ok { flex:1; }
     /* ── Task detail modal ──────────────────────────────────────────────── */
-    .task-modal { position:relative; max-width:500px; max-height:90vh; overflow-y:auto; }
+    .task-modal { position:relative; max-width:820px; max-height:90vh; overflow-y:auto; }
+    .tm-cols { display:flex; gap:30px; }
+    .tm-main { flex:1.5; min-width:0; }
+    .tm-side { flex:1; min-width:0; border-left:1px solid rgba(172,164,151,.25); padding-left:28px; }
+    .tm-side .field { margin-bottom:14px; }
+    .tm-side select, .tm-side input { width:100%; }
+    .tm-side .tm-actions { flex-direction:column; gap:8px; margin-top:20px; }
+    .tm-side .tm-act-btn { flex:none; width:100%; min-width:0; }
+    @media (max-width:780px) {
+      .tm-cols { flex-direction:column; gap:0; }
+      .tm-side { border-left:none; padding-left:0; border-top:1px solid rgba(172,164,151,.25); margin-top:18px; padding-top:18px; }
+      .tm-side .tm-actions { flex-direction:row; flex-wrap:wrap; }
+    }
     .tm-close { position:absolute; top:16px; right:18px; background:none; border:none; font-size:20px; cursor:pointer; color:var(--taupe); line-height:1; padding:4px; z-index:1; }
     .tm-close:hover { color:var(--green); }
     .tm-title { width:100%; border:none; border-bottom:1px solid rgba(172,164,151,.5); background:transparent; font-family:'Cormorant Garamond',serif; font-size:21px; line-height:1.35; padding:2px 34px 12px 0; margin-bottom:8px; outline:none; color:var(--black); resize:none; overflow:hidden; }
@@ -561,65 +573,69 @@
 <div id="task-modal" class="overlay" style="display:none;">
   <div class="modal task-modal">
     <button class="tm-close" onclick="closeTaskModal()">✕</button>
-    <textarea id="tm-title" class="tm-title" rows="1" oninput="tmAutoGrow(this)" onchange="saveTaskField('title', this.value)"></textarea>
-    <div class="tm-grid">
-      <div class="field" style="margin:0"><label>Estado</label>
-        <select id="tm-status" onchange="saveTaskField('status', this.value)">
-          <option value="todo">Por fazer</option>
-          <option value="doing">Em curso</option>
-          <option value="blocked">Bloqueada</option>
-          <option value="waiting">À espera</option>
-          <option value="done">Concluída</option>
-        </select>
+    <div class="tm-cols">
+      <div class="tm-main">
+        <textarea id="tm-title" class="tm-title" rows="1" oninput="tmAutoGrow(this)" onchange="saveTaskField('title', this.value)"></textarea>
+        <div class="field">
+          <label>Subtarefas <span id="tm-sub-progress" class="sub-prog"></span></label>
+          <div id="tm-subs"></div>
+          <div class="sub-bar-wrap" id="tm-sub-bar-wrap" style="display:none"><div class="sub-bar" id="tm-sub-bar"></div></div>
+          <div class="sub-add-row">
+            <input id="tm-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){addSubtask();event.preventDefault();}">
+            <input type="date" id="tm-sub-date" class="sub-date" title="Data da subtarefa">
+            <button onclick="addSubtask()">+</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>Notas</label>
+          <textarea id="tm-notes" class="note-field" rows="1" placeholder="Notas, contexto, links…" oninput="tmAutoGrow(this)" onchange="saveTaskField('notes', this.value)"></textarea>
+        </div>
       </div>
-      <div class="field" style="margin:0"><label>Importância</label>
-        <select id="tm-priority" onchange="saveTaskField('priority', this.value)">
-          <option value="">—</option>
-          <option value="alta">Alta</option>
-          <option value="media">Média</option>
-          <option value="baixa">Baixa</option>
-        </select>
+      <div class="tm-side">
+        <div class="field"><label>Estado</label>
+          <select id="tm-status" onchange="saveTaskField('status', this.value)">
+            <option value="todo">Por fazer</option>
+            <option value="doing">Em curso</option>
+            <option value="blocked">Bloqueada</option>
+            <option value="waiting">À espera</option>
+            <option value="done">Concluída</option>
+          </select>
+        </div>
+        <div class="field"><label>Importância</label>
+          <select id="tm-priority" onchange="saveTaskField('priority', this.value)">
+            <option value="">—</option>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </div>
+        <div class="field"><label>Data início</label>
+          <input type="date" id="tm-start" onchange="saveTaskField('startDate', this.value)">
+        </div>
+        <div class="field"><label>Data fim</label>
+          <input type="date" id="tm-due" onchange="saveTaskField('dueDate', this.value)">
+        </div>
+        <div class="field"><label>Lista</label>
+          <select id="tm-list" onchange="onTaskListChange()"></select>
+        </div>
+        <div class="field" id="tm-dept-wrap"><label>Departamento</label>
+          <select id="tm-dept" onchange="saveTaskField('department', this.value)"></select>
+        </div>
+        <div class="field"><label>Repetir</label>
+          <select id="tm-repeat" onchange="saveTaskField('repeat', this.value)">
+            <option value="">Não repete</option>
+            <option value="daily">Diariamente</option>
+            <option value="weekdays">Dias úteis (seg–sex)</option>
+            <option value="weekly">Semanalmente</option>
+            <option value="monthly">Mensalmente</option>
+            <option value="yearly">Anualmente</option>
+          </select>
+        </div>
+        <div class="tm-actions">
+          <button class="tm-act-btn" onclick="taskToCalendar()">⊞ Bloquear no calendário</button>
+          <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up por email</button>
+          <button class="tm-act-btn danger" onclick="deleteTaskFromModal()">Apagar</button>
+        </div>
       </div>
-      <div class="field" style="margin:0"><label>Data início</label>
-        <input type="date" id="tm-start" onchange="saveTaskField('startDate', this.value)">
-      </div>
-      <div class="field" style="margin:0"><label>Data fim</label>
-        <input type="date" id="tm-due" onchange="saveTaskField('dueDate', this.value)">
-      </div>
-      <div class="field" style="margin:0"><label>Lista</label>
-        <select id="tm-list" onchange="onTaskListChange()"></select>
-      </div>
-      <div class="field" style="margin:0" id="tm-dept-wrap"><label>Departamento</label>
-        <select id="tm-dept" onchange="saveTaskField('department', this.value)"></select>
-      </div>
-    </div>
-    <div class="field"><label>Repetir</label>
-      <select id="tm-repeat" onchange="saveTaskField('repeat', this.value)" style="width:100%">
-        <option value="">Não repete</option>
-        <option value="daily">Diariamente</option>
-        <option value="weekdays">Dias úteis (seg–sex)</option>
-        <option value="weekly">Semanalmente</option>
-        <option value="monthly">Mensalmente</option>
-        <option value="yearly">Anualmente</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Subtarefas <span id="tm-sub-progress" class="sub-prog"></span></label>
-      <div id="tm-subs"></div>
-      <div class="sub-bar-wrap" id="tm-sub-bar-wrap" style="display:none"><div class="sub-bar" id="tm-sub-bar"></div></div>
-      <div class="sub-add-row">
-        <input id="tm-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){addSubtask();event.preventDefault();}">
-        <input type="date" id="tm-sub-date" class="sub-date" title="Data da subtarefa">
-        <button onclick="addSubtask()">+</button>
-      </div>
-    </div>
-    <div class="field" style="margin-bottom:0"><label>Notas</label>
-      <textarea id="tm-notes" class="note-field" rows="1" placeholder="Notas, contexto, links…" oninput="tmAutoGrow(this)" onchange="saveTaskField('notes', this.value)"></textarea>
-    </div>
-    <div class="tm-actions">
-      <button class="tm-act-btn" onclick="taskToCalendar()">⊞ Bloquear no calendário</button>
-      <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up por email</button>
-      <button class="tm-act-btn danger" onclick="deleteTaskFromModal()">Apagar</button>
     </div>
   </div>
 </div>
