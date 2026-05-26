@@ -40,6 +40,13 @@
     .dept-drop-body { padding-bottom:6px; }
     .dept-drop.collapsed .dept-drop-body { display:none; }
     .dept-empty { padding:10px 30px 14px 52px; font-size:13px; color:var(--taupe); font-style:italic; }
+    .done-month { margin:4px 30px 8px; }
+    .done-month-hdr { display:flex; align-items:center; gap:10px; padding:7px 12px; cursor:pointer; user-select:none; transition:background .12s; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--taupe); font-weight:600; }
+    .done-month-hdr:hover { background:rgba(172,164,151,.07); color:var(--green); }
+    .done-month.collapsed .dept-drop-chev { transform:rotate(-90deg); }
+    .done-month-count { margin-left:auto; font-size:11px; letter-spacing:.05em; color:var(--taupe); font-weight:500; }
+    .done-month-body { padding:0 0 4px 12px; }
+    .done-month.collapsed .done-month-body { display:none; }
     #dept-select-wrap { display:none; flex:1; min-width:130px; }
     #new-dept { width:100%; height:100%; border:1px solid rgba(172,164,151,.5); padding:8px 10px; font-family:'Cormorant Garamond',serif; font-size:13px; background:var(--cream); color:var(--black); outline:none; cursor:pointer; }
 
@@ -1951,27 +1958,50 @@ function renderTasks() {
       wrap.innerHTML = `<div class="empty-state"><div class="ico">✓</div><p>Ainda não há tarefas concluídas.</p></div>`;
       return;
     }
-    // Group by month (completedAt or dueDate fallback)
-    const groups = {};
+    // Group by list, then by month within each list
+    const monthLbl = (ts) => new Date(ts).toLocaleDateString('pt-PT', { year:'numeric', month:'long' });
+    const monthKey = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); };
+    const tsOf = (t) => t.completedAt || (t.dueDate ? new Date(t.dueDate).getTime() : Date.now());
+
+    // Build list buckets in the same order as the sidebar (lists[]), with an "Outras" bucket for tasks with no list
+    const buckets = lists.map(l => ({ id: l.id, name: l.name, color: l.color, items: [] }));
+    const orphans = { id: '__none', name: 'Sem lista', color: '#aca497', items: [] };
     all.forEach(t => {
-      const ts = t.completedAt || (t.dueDate ? new Date(t.dueDate).getTime() : Date.now());
-      const d  = new Date(ts);
-      const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-      const lbl = d.toLocaleDateString('pt-PT', { year:'numeric', month:'long' });
-      if (!groups[key]) groups[key] = { label: lbl, items: [] };
-      groups[key].items.push(t);
+      const b = buckets.find(x => x.id === t.listId) || orphans;
+      b.items.push(t);
     });
-    const keys = Object.keys(groups).sort().reverse();
-    wrap.innerHTML = keys.map(k => {
-      const g = groups[k];
-      const open = !collapsedDepts.has('done::' + k);
+    const allBuckets = [...buckets.filter(b => b.items.length), ...(orphans.items.length ? [orphans] : [])];
+
+    wrap.innerHTML = allBuckets.map(b => {
+      const open = !collapsedDepts.has('done::list::' + b.id);
+      // Within bucket, group by month
+      const monthGroups = {};
+      b.items.forEach(t => {
+        const k = monthKey(tsOf(t));
+        if (!monthGroups[k]) monthGroups[k] = { label: monthLbl(tsOf(t)), items: [] };
+        monthGroups[k].items.push(t);
+      });
+      const mKeys = Object.keys(monthGroups).sort().reverse();
+      const inner = mKeys.map(mk => {
+        const mg = monthGroups[mk];
+        const mopen = !collapsedDepts.has('done::month::' + b.id + '::' + mk);
+        return `<div class="done-month ${mopen?'':'collapsed'}">
+          <div class="done-month-hdr" onclick="toggleDoneSub('${b.id}','${mk}')">
+            <span class="dept-drop-chev">&#9662;</span>
+            <span>${esc(mg.label)}</span>
+            <span class="done-month-count">${mg.items.length}</span>
+          </div>
+          <div class="done-month-body">${mg.items.map(taskHtml).join('')}</div>
+        </div>`;
+      }).join('');
       return `<div class="dept-drop ${open?'':'collapsed'}">
-        <div class="dept-drop-hdr" onclick="toggleDoneMonth('${k}')">
+        <div class="dept-drop-hdr" onclick="toggleDoneList('${b.id}')">
           <span class="dept-drop-chev">&#9662;</span>
-          <span class="dept-drop-name">${esc(g.label)}</span>
-          <span class="dept-drop-count">${g.items.length}</span>
+          <span class="unit-dot" style="background:${b.color};width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0"></span>
+          <span class="dept-drop-name">${esc(b.name)}</span>
+          <span class="dept-drop-count">${b.items.length}</span>
         </div>
-        <div class="dept-drop-body">${g.items.map(taskHtml).join('')}</div>
+        <div class="dept-drop-body" style="padding:6px 0 10px">${inner}</div>
       </div>`;
     }).join('');
     return;
@@ -2020,8 +2050,13 @@ window.toggleDept = (idx) => {
   collapsedDepts.has(key) ? collapsedDepts.delete(key) : collapsedDepts.add(key);
   renderTasks();
 };
-window.toggleDoneMonth = (k) => {
-  const key = 'done::' + k;
+window.toggleDoneList = (id) => {
+  const key = 'done::list::' + id;
+  collapsedDepts.has(key) ? collapsedDepts.delete(key) : collapsedDepts.add(key);
+  renderTasks();
+};
+window.toggleDoneSub = (id, mk) => {
+  const key = 'done::month::' + id + '::' + mk;
   collapsedDepts.has(key) ? collapsedDepts.delete(key) : collapsedDepts.add(key);
   renderTasks();
 };
