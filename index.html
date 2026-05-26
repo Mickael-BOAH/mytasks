@@ -1650,25 +1650,7 @@ window.renderDashboard = async function() {
     <div class="dash-grid">
       <div class="dash-card"><h4>Por unidade</h4>${unitHtml}</div>
       <div class="dash-card"><h4>Estado &amp; prioridade</h4>${stateHtml}</div>
-      <div class="dash-card" id="dash-events"><h4>Próximos eventos</h4><div class="dash-empty">${accessToken?'A carregar…':'Liga ao Google (sidebar) para veres a agenda.'}</div></div>
     </div>`;
-
-  if (accessToken) {
-    try {
-      const events = await fetchCalendarEvents();
-      const evHtml = events.length ? events.slice(0,6).map(e => {
-        const isAllDay = !!e.start.date;
-        const label = isAllDay ? fmtDate(e.start.date)
-          : new Date(e.start.dateTime).toLocaleString('pt-PT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-        return `<div class="dash-ev"><span class="t">${label}</span><span>${esc(e.summary||'(sem título)')}</span></div>`;
-      }).join('') : `<div class="dash-empty">Sem eventos próximos.</div>`;
-      const card = document.getElementById('dash-events');
-      if (card) card.innerHTML = `<h4>Próximos eventos</h4>${evHtml}`;
-    } catch {
-      const card = document.getElementById('dash-events');
-      if (card) card.innerHTML = `<h4>Próximos eventos</h4><div class="dash-empty">Erro ao carregar (token pode ter expirado).</div>`;
-    }
-  }
 };
 
 // ── Render: Tasks ──────────────────────────────────────────────────────────
