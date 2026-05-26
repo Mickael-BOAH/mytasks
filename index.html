@@ -323,6 +323,10 @@
     .sub-notes::placeholder { color:var(--taupe); font-style:italic; }
     .done-toggle { cursor:pointer; user-select:none; }
     .done-toggle:hover span { color:var(--green); }
+    .sub-done-toggle { display:flex; align-items:center; gap:10px; margin-top:10px; padding:8px 0; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--taupe); cursor:pointer; user-select:none; border-top:1px solid rgba(172,164,151,.22); }
+    .sub-done-toggle:hover span { color:var(--green); }
+    .sub-done-toggle .line { flex:1 1 auto; height:1px; background:rgba(172,164,151,.18); }
+    .sub-done-wrap .sub-block:first-child { padding-top:10px; }
     @media (max-width:680px) { .dash-kpis { grid-template-columns:repeat(2,1fr); } }
 
     /* ── Toast ──────────────────────────────────────────────────────────── */
@@ -479,6 +483,11 @@
       <span style="font-size:13px;opacity:.6">◈</span>
       <span>Hoje</span>
       <span class="badge" id="b-today"></span>
+    </div>
+    <div class="nav-item" id="nav-done" onclick="selectView('done')">
+      <span style="font-size:13px;opacity:.6">✓</span>
+      <span>Concluídas</span>
+      <span class="badge" id="b-done"></span>
     </div>
 
     <div class="nav-section">As minhas listas</div>
@@ -752,6 +761,7 @@ let collapsedDepts = new Set();
 let templates = [], tplSteps = [], editingTplId = null;
 let expandedFocus = new Set();
 let doneOpen = false;
+let subDoneOpen = false;
 let currentTaskId = null;
 const STATUS = {
   todo:    {label:'Por fazer'},
@@ -1003,9 +1013,8 @@ window.onTaskListChange = function() {
   saveTaskField('department', '');
   fillTaskModalDept('');
 };
-function renderSubtasks(subs) {
-  document.getElementById('tm-subs').innerHTML = subs.map((s,i) => `
-    <div class="sub-block ${s.done?'done':''}">
+function subBlockHtml(s, i) {
+  return `<div class="sub-block ${s.done?'done':''}" data-idx="${i}">
       <div class="sub-head">
         <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
         <textarea class="sub-text-edit" rows="1" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.text)}</textarea>
@@ -1013,10 +1022,21 @@ function renderSubtasks(subs) {
         <button class="sub-del" onclick="removeSub(${i})">✕</button>
       </div>
       <textarea class="sub-notes note-field" rows="1" placeholder="Notas / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
-    </div>`).join('');
+    </div>`;
+}
+function renderSubtasks(subs) {
+  const active = subs.map((s,i) => ({s,i})).filter(x => !x.s.done);
+  const done   = subs.map((s,i) => ({s,i})).filter(x =>  x.s.done);
+  let html = active.map(x => subBlockHtml(x.s, x.i)).join('');
+  if (done.length) {
+    html += `<div class="sub-done-toggle" onclick="toggleSubDone()"><span>${subDoneOpen?'▾':'▸'} Concluídas — ${done.length}</span><div class="line"></div></div>`;
+    html += `<div class="sub-done-wrap" style="display:${subDoneOpen?'block':'none'}">${done.map(x => subBlockHtml(x.s, x.i)).join('')}</div>`;
+  }
+  document.getElementById('tm-subs').innerHTML = html;
   updateSubProgress();
   document.querySelectorAll('#tm-subs textarea').forEach(tmAutoGrow);
 }
+window.toggleSubDone = () => { subDoneOpen = !subDoneOpen; renderSubtasks(readSubsFromDOM()); };
 function readSubsFromDOM() {
   return [...document.querySelectorAll('#tm-subs .sub-block')].map(el => ({
     text: el.querySelector('.sub-text-edit').value.trim(),
@@ -1043,17 +1063,32 @@ window.addSubtask = () => {
   renderSubtasks(subs); saveSubs();
 };
 window.setSubDue = (i, value) => {
-  if (value) { const adj = adjustWeekend(value); if (adj !== value) { const el = document.querySelectorAll('#tm-subs .sub-date')[i]; if (el) el.value = adj; showToast('Fim de semana → sexta'); } }
+  if (value) {
+    const adj = adjustWeekend(value);
+    if (adj !== value) {
+      const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
+      const el = blocks.find(b => Number(b.dataset.idx) === i);
+      if (el) el.querySelector('.sub-date').value = adj;
+      showToast('Fim de semana → sexta');
+    }
+  }
   saveSubs();
 };
 window.toggleSub = (i) => {
-  const el = document.querySelectorAll('#tm-subs .sub-block')[i]; if (!el) return;
+  // i is the original index in the full subs array (data-idx)
+  const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
+  const el = blocks.find(b => Number(b.dataset.idx) === i); if (!el) return;
   const chk = el.querySelector('.sub-check');
-  chk.classList.toggle('checked'); el.classList.toggle('done', chk.classList.contains('checked'));
-  updateSubProgress(); saveSubs();
+  chk.classList.toggle('checked');
+  el.classList.toggle('done', chk.classList.contains('checked'));
+  const subs = readSubsFromDOM();
+  renderSubtasks(subs);
+  saveSubs();
 };
 window.removeSub = (i) => {
-  const subs = readSubsFromDOM(); subs.splice(i,1);
+  const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
+  const el = blocks.find(b => Number(b.dataset.idx) === i); if (el) el.remove();
+  const subs = readSubsFromDOM();
   renderSubtasks(subs); saveSubs();
 };
 window.deleteTaskFromModal = () => { if (currentTaskId) { deleteTask(currentTaskId); closeTaskModal(); } };
@@ -1279,7 +1314,7 @@ window.selectView = async function(v) {
   actions.innerHTML = '';
   addForm.style.display = 'flex';
 
-  const showFilters = (v === 'all' || v === 'today' || !!lists.find(x => x.id === v));
+  const showFilters = (v === 'all' || v === 'today' || v === 'done' || !!lists.find(x => x.id === v));
   document.getElementById('filter-bar').style.display = showFilters ? 'flex' : 'none';
   resetFilters();
 
@@ -1293,6 +1328,10 @@ window.selectView = async function(v) {
     renderTasks();
   } else if (v === 'today') {
     document.getElementById('main-title').textContent = 'Hoje';
+    renderTasks();
+  } else if (v === 'done') {
+    document.getElementById('main-title').textContent = 'Concluídas';
+    addForm.style.display = 'none';
     renderTasks();
   } else if (v === 'calendar') {
     document.getElementById('main-title').textContent = 'Calendário';
@@ -1689,6 +1728,7 @@ function filtered() {
   let base;
   if (view === 'all') base = tasks;
   else if (view === 'today') base = tasks.filter(t => t.dueDate === today);
+  else if (view === 'done') base = tasks.filter(t => t.completed).slice().sort((a,b) => (b.completedAt||0) - (a.completedAt||0));
   else base = tasks.filter(t => t.listId === view);
   if (filters.text) base = base.filter(t => (t.title||'').toLowerCase().includes(filters.text) || (t.notes||'').toLowerCase().includes(filters.text) || (t.subtasks||[]).some(s => (s.text||'').toLowerCase().includes(filters.text)));
   if (filters.status) base = base.filter(t => (t.status||'todo') === filters.status);
@@ -1701,6 +1741,38 @@ function filtered() {
 function renderTasks() {
   const wrap   = document.getElementById('tasks-wrap');
   const all    = filtered();
+
+  if (view === 'done') {
+    if (!all.length) {
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">✓</div><p>Ainda não há tarefas concluídas.</p></div>`;
+      return;
+    }
+    // Group by month (completedAt or dueDate fallback)
+    const groups = {};
+    all.forEach(t => {
+      const ts = t.completedAt || (t.dueDate ? new Date(t.dueDate).getTime() : Date.now());
+      const d  = new Date(ts);
+      const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      const lbl = d.toLocaleDateString('pt-PT', { year:'numeric', month:'long' });
+      if (!groups[key]) groups[key] = { label: lbl, items: [] };
+      groups[key].items.push(t);
+    });
+    const keys = Object.keys(groups).sort().reverse();
+    wrap.innerHTML = keys.map(k => {
+      const g = groups[k];
+      const open = !collapsedDepts.has('done::' + k);
+      return `<div class="dept-drop ${open?'':'collapsed'}">
+        <div class="dept-drop-hdr" onclick="toggleDoneMonth('${k}')">
+          <span class="dept-drop-chev">&#9662;</span>
+          <span class="dept-drop-name">${esc(g.label)}</span>
+          <span class="dept-drop-count">${g.items.length}</span>
+        </div>
+        <div class="dept-drop-body">${g.items.map(taskHtml).join('')}</div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
   const active = all.filter(t => !t.completed).sort(byDue);
   const done   = all.filter(t => t.completed);
   const currentList = lists.find(l => l.id === view);
@@ -1741,6 +1813,11 @@ function renderTasks() {
 }
 window.toggleDept = (idx) => {
   const key = view + '::' + idx;
+  collapsedDepts.has(key) ? collapsedDepts.delete(key) : collapsedDepts.add(key);
+  renderTasks();
+};
+window.toggleDoneMonth = (k) => {
+  const key = 'done::' + k;
   collapsedDepts.has(key) ? collapsedDepts.delete(key) : collapsedDepts.add(key);
   renderTasks();
 };
@@ -1785,6 +1862,9 @@ function updateBadges() {
   const active = tasks.filter(t => !t.completed);
   document.getElementById('b-all').textContent   = active.length || '';
   document.getElementById('b-today').textContent = active.filter(t => t.dueDate === today).length || '';
+  const doneCount = tasks.filter(t => t.completed).length;
+  const bDone = document.getElementById('b-done');
+  if (bDone) bDone.textContent = doneCount || '';
 }
 
 // ── Render: Calendar ───────────────────────────────────────────────────────
