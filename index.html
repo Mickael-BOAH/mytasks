@@ -162,6 +162,22 @@
     .email-footer { margin-top:10px; display:flex; justify-content:flex-end; }
     .email-task-btn { background:none; border:1px solid rgba(172,164,151,.4); padding:5px 14px; font-size:10px; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; font-family:'Cormorant Garamond',serif; color:var(--taupe); transition:all .15s; }
     .email-task-btn:hover { border-color:var(--green); color:var(--green); }
+    .email-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid rgba(172,164,151,.22); }
+    .email-bar .f-chip { background:transparent; border:1px solid rgba(172,164,151,.45); padding:6px 14px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; font-family:'Cormorant Garamond',serif; color:var(--taupe); transition:all .12s; }
+    .email-bar .f-chip:hover { border-color:var(--green); color:var(--green); }
+    .email-bar .f-chip.active { background:var(--green); color:var(--cream); border-color:var(--green); }
+    .email-bar .f-search { flex:1; min-width:200px; }
+    .email-card.unread { border-left:3px solid var(--green); }
+    .email-card:not(.unread) .email-subject { font-weight:400; color:var(--taupe); }
+    .email-card:not(.unread) .email-from { color:var(--taupe); }
+    .email-head { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+    .email-head .email-from { flex:1; margin-bottom:0; }
+    .email-dot { width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0; }
+    .email-star { color:#b58800; font-size:13px; line-height:1; }
+    .email-date { font-size:11px; color:var(--taupe); font-style:italic; white-space:nowrap; }
+    .email-footer { margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .email-open { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--taupe); text-decoration:none; font-family:'Cormorant Garamond',serif; }
+    .email-open:hover { color:var(--green); }
 
     /* ── Add form ───────────────────────────────────────────────────────── */
     .filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 30px; border-bottom:1px solid rgba(172,164,151,.25); background:var(--cream); flex-shrink:0; }
@@ -545,7 +561,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px">v2026.05.26-c</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px">v2026.05.26-d</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
@@ -1432,27 +1448,38 @@ async function fetchCalendarEvents() {
 }
 
 // ── Gmail ──────────────────────────────────────────────────────────────────
-async function fetchEmails() {
+let emailQuery = 'is:unread in:inbox';
+async function fetchEmails(q) {
+  const query = q || emailQuery || 'is:unread in:inbox';
   const r = await fetch(
-    'https://www.googleapis.com/gmail/v1/users/me/threads?q=is:unread+in:inbox&maxResults=20',
+    `https://www.googleapis.com/gmail/v1/users/me/threads?q=${encodeURIComponent(query)}&maxResults=30`,
     {headers: {Authorization: `Bearer ${accessToken}`}}
   );
   if (!r.ok) throw new Error(r.status);
   const d = await r.json();
   if (!d.threads?.length) return [];
   const details = await Promise.all(
-    d.threads.slice(0,20).map(t =>
-      fetch(`https://www.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`,
+    d.threads.slice(0,30).map(t =>
+      fetch(`https://www.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`,
         {headers: {Authorization: `Bearer ${accessToken}`}})
       .then(r => r.json())
     )
   );
   return details.map(th => {
-    const msg = th.messages?.[0];
+    const msg = th.messages?.[th.messages.length - 1];
     if (!msg) return null;
     const h = msg.payload?.headers || [];
     const get = n => h.find(x => x.name===n)?.value || '';
-    return {id:th.id, subject:get('Subject')||'(sem assunto)', from:get('From').replace(/<[^>]+>/,'').trim(), snippet:msg.snippet||''};
+    const labels = msg.labelIds || [];
+    return {
+      id: th.id,
+      subject: get('Subject') || '(sem assunto)',
+      from:    get('From').replace(/<[^>]+>/,'').trim(),
+      date:    get('Date'),
+      snippet: msg.snippet || '',
+      unread:  labels.includes('UNREAD'),
+      starred: labels.includes('STARRED')
+    };
   }).filter(Boolean);
 }
 
@@ -1571,13 +1598,50 @@ window.reloadCalendar = async function() {
   }
 };
 
-window.reloadEmails = async function() {
+const EMAIL_PRESETS = {
+  unread:  { label: 'Por ler',     q: 'is:unread in:inbox' },
+  today:   { label: 'Hoje',        q: 'in:inbox newer_than:1d' },
+  week:    { label: 'Esta semana', q: 'in:inbox newer_than:7d' },
+  starred: { label: 'Importantes', q: 'is:starred in:inbox' },
+  all:     { label: 'Todos',       q: 'in:inbox' }
+};
+let activeEmailPreset = 'unread';
+window.reloadEmails = async function(preset) {
   const wrap = document.getElementById('tasks-wrap');
   if (!accessToken) { wrap.innerHTML = googleReconnectHtml('os emails'); return; }
-  wrap.innerHTML = `<div class="loading-state">A carregar emails…</div>`;
+  if (preset && EMAIL_PRESETS[preset]) { activeEmailPreset = preset; emailQuery = EMAIL_PRESETS[preset].q; document.getElementById('email-search') && (document.getElementById('email-search').value = ''); }
+  const bar = renderEmailBar();
+  wrap.innerHTML = bar + `<div class="loading-state">A carregar emails…</div>`;
   try {
     const emails = await fetchEmails();
-    document.getElementById('b-emails').textContent = emails.length || '';
+    const unreadCnt = emails.filter(e => e.unread).length;
+    document.getElementById('b-emails').textContent = unreadCnt || '';
+    renderEmailView(emails);
+  } catch {
+    googleExpired();
+    wrap.innerHTML = googleReconnectHtml('os emails');
+  }
+};
+function renderEmailBar() {
+  const chips = Object.entries(EMAIL_PRESETS).map(([k,p]) =>
+    `<button class="f-chip ${activeEmailPreset===k?'active':''}" onclick="reloadEmails('${k}')">${p.label}</button>`
+  ).join('');
+  return `<div class="email-bar">
+    ${chips}
+    <input id="email-search" class="f-search" placeholder="Pesquisar… (ex: from:fornecedor, has:attachment)" onkeydown="if(event.key==='Enter')searchEmails(this.value)">
+    <button class="f-chip" onclick="searchEmails(document.getElementById('email-search').value)">Procurar</button>
+  </div>`;
+}
+window.searchEmails = async function(q) {
+  q = (q || '').trim();
+  if (!q) return reloadEmails('unread');
+  activeEmailPreset = '__search';
+  emailQuery = q + ' in:anywhere';
+  const wrap = document.getElementById('tasks-wrap');
+  wrap.innerHTML = renderEmailBar() + `<div class="loading-state">A pesquisar…</div>`;
+  document.getElementById('email-search').value = q;
+  try {
+    const emails = await fetchEmails();
     renderEmailView(emails);
   } catch {
     googleExpired();
@@ -2145,21 +2209,37 @@ function renderCalendarView(events) {
 }
 
 // ── Render: Emails ─────────────────────────────────────────────────────────
+function fmtEmailDate(s) {
+  if (!s) return '';
+  const d = new Date(s); if (isNaN(d)) return '';
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  if (sameDay) return d.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'});
+  return d.toLocaleDateString('pt-PT', {day:'2-digit', month:'short'});
+}
 function renderEmailView(emails) {
   const wrap = document.getElementById('tasks-wrap');
+  const bar = renderEmailBar();
   if (!emails.length) {
-    wrap.innerHTML = `<div class="empty-state"><div class="ico">◎</div><p>Sem emails não lidos.</p></div>`;
+    wrap.innerHTML = bar + `<div class="empty-state"><div class="ico">◎</div><p>Sem emails para este filtro.</p></div>`;
     return;
   }
-  wrap.innerHTML = emails.map(e => `
-    <div class="email-card">
-      <div class="email-from">${esc(e.from)}</div>
+  const list = emails.map(e => `
+    <div class="email-card ${e.unread?'unread':''}">
+      <div class="email-head">
+        ${e.unread ? '<span class="email-dot" title="Por ler"></span>' : ''}
+        ${e.starred ? '<span class="email-star" title="Importante">★</span>' : ''}
+        <div class="email-from">${esc(e.from)}</div>
+        <div class="email-date">${fmtEmailDate(e.date)}</div>
+      </div>
       <div class="email-subject">${esc(e.subject)}</div>
       <div class="email-snippet">${esc(e.snippet)}</div>
       <div class="email-footer">
+        <a class="email-open" href="https://mail.google.com/mail/u/0/#inbox/${e.id}" target="_blank">↗ Abrir no Gmail</a>
         <button class="email-task-btn" onclick="emailToTask('${esc(e.subject).replace(/'/g,"\\'")}')">→ Criar task</button>
       </div>
     </div>`).join('');
+  wrap.innerHTML = bar + list;
 }
 
 // ── Sidebar render ─────────────────────────────────────────────────────────
