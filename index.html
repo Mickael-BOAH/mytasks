@@ -2,6 +2,9 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -561,7 +564,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px">v2026.05.26-d</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-e ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
@@ -869,6 +872,10 @@ function startApp() {
   restoreGoogleToken();
   if (!accessToken) document.getElementById('google-connect-btn').style.display = 'block';
 }
+window.forceReload = () => {
+  // Bypass cache by reloading with a unique query string
+  location.replace(location.pathname + '?v=' + Date.now());
+};
 function installShortcuts() {
   document.addEventListener('keydown', (e) => {
     // ignore when typing in an input/textarea/contenteditable
