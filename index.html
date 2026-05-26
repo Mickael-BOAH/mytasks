@@ -696,8 +696,8 @@
             <option value="baixa">Baixa</option>
           </select>
         </div>
-        <div class="field"><label>Data início</label>
-          <input type="date" id="tm-start" onchange="saveTaskField('startDate', this.value)">
+        <div class="field"><label>Criada em</label>
+          <input type="date" id="tm-start" readonly title="Definida automaticamente" style="background:#f0ece1;color:var(--taupe);cursor:not-allowed">
         </div>
         <div class="field"><label>Data fim</label>
           <input type="date" id="tm-due" onchange="saveTaskField('dueDate', this.value)">
@@ -915,7 +915,7 @@ window.addTask = async () => {
     dueDate,
     listId:     document.getElementById('new-list').value || null,
     department: document.getElementById('new-dept').value || null,
-    startDate: null,
+    startDate: todayStr(),
     status: 'todo',
     notes: '',
     subtasks: [],
@@ -935,7 +935,7 @@ window.toggleTask = async (id, cur) => {
     if (nd) {
       await addDoc(collection(db,'tasks'), {
         title: t.title, priority: t.priority || null, dueDate: nd,
-        startDate: t.startDate ? nextDate(t.startDate, t.repeat) : null,
+        startDate: todayStr(),
         listId: t.listId || null, department: t.department || null,
         repeat: t.repeat, status: 'todo', notes: t.notes || '',
         subtasks: (t.subtasks || []).map(s => ({text: s.text, done: false, due: s.due ? nextDate(s.due, t.repeat) : null, notes: ''})),
@@ -955,7 +955,7 @@ window.openTask = (id) => {
   document.getElementById('tm-title').value    = t.title || '';
   document.getElementById('tm-status').value   = t.status || (t.completed ? 'done' : 'todo');
   document.getElementById('tm-priority').value = t.priority || '';
-  document.getElementById('tm-start').value    = t.startDate || '';
+  document.getElementById('tm-start').value    = t.startDate || (t.createdAt && t.createdAt.toDate ? fmtISO(t.createdAt.toDate()) : '');
   document.getElementById('tm-due').value      = t.dueDate || '';
   document.getElementById('tm-notes').value    = t.notes || '';
   document.getElementById('tm-repeat').value   = t.repeat || '';
@@ -1065,7 +1065,6 @@ window.saveTaskModal = async () => {
     title: document.getElementById('tm-title').value.trim() || t.title,
     status, completed: status === 'done', completedAt: status === 'done' ? (t.completedAt || Date.now()) : null,
     priority: document.getElementById('tm-priority').value || null,
-    startDate: document.getElementById('tm-start').value || null,
     dueDate: document.getElementById('tm-due').value || null,
     listId: document.getElementById('tm-list').value || null,
     department: document.getElementById('tm-dept').value || null,
@@ -1221,7 +1220,7 @@ async function fetchEmails() {
 // ── Calendar event → Task ──────────────────────────────────────────────────
 window.eventToTask = async function(title, date) {
   await addDoc(collection(db,'tasks'), {
-    title, priority:null, dueDate:date||null, listId:null, completed:false, createdAt:serverTimestamp()
+    title, priority:null, dueDate:date||null, listId:null, startDate:todayStr(), completed:false, createdAt:serverTimestamp()
   });
   showToast('Task criada');
 };
@@ -1229,7 +1228,7 @@ window.eventToTask = async function(title, date) {
 // ── Email → Task ───────────────────────────────────────────────────────────
 window.emailToTask = async function(subject) {
   await addDoc(collection(db,'tasks'), {
-    title:subject, priority:null, dueDate:null, listId:null, completed:false, createdAt:serverTimestamp()
+    title:subject, priority:null, dueDate:null, listId:null, startDate:todayStr(), completed:false, createdAt:serverTimestamp()
   });
   showToast('Task criada a partir do email');
 };
@@ -1518,7 +1517,7 @@ window.createQuickTask = async () => {
     dueDate,
     listId: document.getElementById('qa-list').value || null,
     department: document.getElementById('qa-dept').value || null,
-    startDate: null, status: 'todo', notes: document.getElementById('qa-notes').value.trim(), subtasks: qaSubs.slice(), repeat: document.getElementById('qa-repeat').value || null,
+    startDate: todayStr(), status: 'todo', notes: document.getElementById('qa-notes').value.trim(), subtasks: qaSubs.slice(), repeat: document.getElementById('qa-repeat').value || null,
     completed: false, createdAt: serverTimestamp()
   });
   qaSubs = [];
