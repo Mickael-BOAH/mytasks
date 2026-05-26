@@ -267,6 +267,20 @@
     /* ── Dashboard ──────────────────────────────────────────────────────── */
     .dash-newtask { width:100%; background:var(--green); color:var(--cream); border:none; padding:15px; font-family:'Cormorant Garamond',serif; font-size:12px; letter-spacing:.22em; text-transform:uppercase; cursor:pointer; margin-bottom:16px; transition:opacity .15s; }
     .dash-newtask:hover { opacity:.85; }
+    /* Briefing */
+    .bf-section { margin:14px 0 8px; }
+    .bf-section h5 { font-size:11px; font-weight:600; letter-spacing:.22em; text-transform:uppercase; color:var(--green); margin-bottom:10px; display:flex; align-items:center; gap:10px; }
+    .bf-section h5 .count { background:var(--green); color:var(--cream); font-size:10px; padding:2px 8px; letter-spacing:.06em; font-weight:500; }
+    .bf-section h5 .count.alert { background:#7a3030; }
+    .bf-section h5 .line { flex:1; height:1px; background:rgba(172,164,151,.25); }
+    .bf-row { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid rgba(172,164,151,.14); font-size:14px; }
+    .bf-row:last-child { border-bottom:none; }
+    .bf-row .bf-title { flex:1; }
+    .bf-row .bf-meta { font-size:11px; color:var(--taupe); font-style:italic; white-space:nowrap; }
+    .bf-row .bf-meta.late { color:#7a3030; font-style:normal; font-weight:500; }
+    .bf-row .bf-tag { font-size:9.5px; padding:1px 7px; letter-spacing:.1em; text-transform:uppercase; background:rgba(172,164,151,.18); color:var(--green); }
+    .bf-empty { color:var(--taupe); font-style:italic; font-size:13px; padding:4px 0; }
+    .bf-day { font-weight:600; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--green); margin:12px 0 4px; }
     .dash-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
     .kpi { background:var(--card); border:1px solid rgba(172,164,151,.28); padding:18px 16px; }
     .kpi .num { font-size:34px; font-weight:300; line-height:1; color:var(--green); }
@@ -749,6 +763,20 @@
   </div>
 </div>
 
+<!-- ══ BRIEFING (Newsletter de 2ª feira) ══ -->
+<div id="briefing-modal" class="overlay" style="display:none;">
+  <div class="modal task-modal" style="max-width:780px">
+    <button class="tm-close" onclick="closeBriefing()">✕</button>
+    <h3 style="margin-bottom:6px">Briefing semanal</h3>
+    <div id="briefing-date" style="font-size:12px;color:var(--taupe);font-style:italic;margin-bottom:18px"></div>
+    <div id="briefing-body" style="max-height:60vh;overflow-y:auto;padding-right:6px"></div>
+    <div class="tm-actions" style="margin-top:18px">
+      <button class="tm-act-btn" onclick="sendBriefingEmail()">✉ Enviar para o meu Gmail</button>
+      <button class="tm-act-btn ghost" onclick="closeBriefing()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SCRIPTS ════════════════════════════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -812,7 +840,7 @@ function boot(cfg) {
   });
 }
 function startApp() {
-  if (!appStarted) { appStarted = true; subscribe(); setTimeout(() => selectView('dashboard'), 0); installShortcuts(); }
+  if (!appStarted) { appStarted = true; subscribe(); setTimeout(() => selectView('dashboard'), 0); installShortcuts(); maybeAutoBriefing(); }
   document.getElementById('google-nav').style.display = 'block';
   restoreGoogleToken();
   if (!accessToken) document.getElementById('google-connect-btn').style.display = 'block';
@@ -824,9 +852,10 @@ function installShortcuts() {
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openQuickAdd(); }
+    else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); openBriefing(); }
     else if (e.key === '/') { e.preventDefault(); const s = document.getElementById('f-search'); if (s && s.offsetParent) s.focus(); }
     else if (e.key === 'Escape') {
-      ['qa-modal','task-modal','list-modal','tpl-modal','sched-modal'].forEach(id => { const el = document.getElementById(id); if (el && el.style.display === 'flex') el.style.display = 'none'; });
+      ['qa-modal','task-modal','list-modal','tpl-modal','sched-modal','briefing-modal'].forEach(id => { const el = document.getElementById(id); if (el && el.style.display === 'flex') el.style.display = 'none'; });
     }
   });
 }
@@ -1194,6 +1223,146 @@ window.exportTaskWord = () => {
   showToast('Exportado para Word');
 };
 
+// ── Briefing semanal (Newsletter de 2ª feira) ─────────────────────────────
+const DOW = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+function isoWeekKey(d) {
+  const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  dt.setDate(dt.getDate() + 4 - (dt.getDay()||7));
+  const y0 = new Date(dt.getFullYear(), 0, 1);
+  const w  = Math.ceil((((dt - y0) / 86400000) + 1) / 7);
+  return dt.getFullYear() + '-W' + String(w).padStart(2,'0');
+}
+function listOf(t) { const l = lists.find(x => x.id === t.listId); return l ? l.name : ''; }
+function buildBriefingData() {
+  const today = todayStr();
+  const now = new Date();
+  // Compute monday..sunday for current week
+  const day = now.getDay() || 7; // mon=1, sun=7
+  const monday = new Date(now); monday.setDate(now.getDate() - (day - 1));
+  const weekDates = []; for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate()+i); weekDates.push(fmtISO(d)); }
+  const weekStart = weekDates[0], weekEnd = weekDates[6];
+  const lastMonStart = new Date(monday); lastMonStart.setDate(monday.getDate()-7);
+  const lastMonStartTs = lastMonStart.getTime();
+  const mondayTs = monday.getTime();
+  const active = tasks.filter(t => !t.completed);
+  const overdue = active.filter(t => t.dueDate && t.dueDate < today).sort((a,b) => a.dueDate.localeCompare(b.dueDate));
+  const highPri = active.filter(t => t.priority === 'alta' && !(t.dueDate && t.dueDate < today));
+  const byDay = {};
+  weekDates.forEach(d => byDay[d] = []);
+  active.forEach(t => {
+    if (t.dueDate && t.dueDate >= weekStart && t.dueDate <= weekEnd) byDay[t.dueDate].push(t);
+    (t.subtasks||[]).forEach(s => { if (s.due && !s.done && s.due >= weekStart && s.due <= weekEnd) byDay[s.due].push({...t, _sub: s}); });
+  });
+  const doneLastWeek = tasks.filter(t => t.completed && t.completedAt && t.completedAt >= lastMonStartTs && t.completedAt < mondayTs);
+  return { today, weekDates, overdue, highPri, byDay, doneLastWeek };
+}
+function briefingRowHtml(t, opts = {}) {
+  const tag = listOf(t);
+  const dueLbl = (opts.subtitle && t._sub) ? `↳ ${esc(t._sub.text)} · ${fmtDate(t._sub.due)}` : (t.dueDate ? fmtDate(t.dueDate) : '');
+  const late = t.dueDate && t.dueDate < todayStr() && !t._sub;
+  const meta = dueLbl ? `<span class="bf-meta ${late?'late':''}">${dueLbl}</span>` : '';
+  const tagHtml = tag ? `<span class="bf-tag">${esc(tag)}</span>` : '';
+  return `<div class="bf-row" onclick="openTask('${t.id}');closeBriefing()" style="cursor:pointer">
+    <span class="bf-title">${esc(t.title)}${t._sub?` <span style="color:var(--taupe);font-size:12px">— ${esc(t._sub.text)}</span>`:''}</span>${tagHtml}${meta}
+  </div>`;
+}
+function buildBriefingHtml() {
+  const d = buildBriefingData();
+  const sec = (title, rows, alertCount) => {
+    const c = rows.length;
+    const cls = (alertCount && c > 0) ? 'alert' : '';
+    const body = c ? rows.join('') : `<div class="bf-empty">— sem tarefas —</div>`;
+    return `<div class="bf-section"><h5><span>${title}</span><span class="count ${cls}">${c}</span><span class="line"></span></h5>${body}</div>`;
+  };
+  const overdueRows = d.overdue.map(t => briefingRowHtml(t));
+  const highRows = d.highPri.map(t => briefingRowHtml(t));
+  const weekBlocks = d.weekDates.map(dt => {
+    const list = d.byDay[dt] || [];
+    if (!list.length) return '';
+    const dayName = DOW[new Date(dt+'T00:00:00').getDay()];
+    return `<div class="bf-day">${dayName} — ${fmtDate(dt)}</div>` + list.map(t => briefingRowHtml(t, {subtitle:true})).join('');
+  }).filter(Boolean).join('');
+  const weekHtml = weekBlocks || `<div class="bf-empty">— sem prazos esta semana —</div>`;
+  const totalWeek = Object.values(d.byDay).reduce((a,b)=>a+b.length,0);
+  const doneCount = d.doneLastWeek.length;
+  return `
+    ${sec('Vencidas', overdueRows, true)}
+    <div class="bf-section"><h5><span>Esta semana</span><span class="count">${totalWeek}</span><span class="line"></span></h5>${weekHtml}</div>
+    ${sec('Alta prioridade', highRows)}
+    <div class="bf-section"><h5><span>Semana passada</span><span class="count">${doneCount}</span><span class="line"></span></h5>
+      <div class="bf-empty">${doneCount} ${doneCount===1?'tarefa concluída':'tarefas concluídas'}. Bom trabalho. ✦</div>
+    </div>`;
+}
+function buildBriefingEmailHtml() {
+  const d = buildBriefingData();
+  const greenC = '#233b34', taupeC = '#aca497';
+  const row = (t) => {
+    const tag = listOf(t);
+    const dueLbl = t._sub ? `↳ ${esc(t._sub.text)} · ${fmtDate(t._sub.due)}` : (t.dueDate ? fmtDate(t.dueDate) : '');
+    return `<tr><td style="padding:6px 0;border-bottom:1px solid #e5e2d8">${esc(t.title)}${t._sub?` — <span style="color:${taupeC}">${esc(t._sub.text)}</span>`:''}${tag?` <span style="font-size:10px;color:${greenC};background:#eee9dd;padding:1px 6px">${esc(tag)}</span>`:''}</td><td style="padding:6px 0;text-align:right;font-style:italic;color:${taupeC};border-bottom:1px solid #e5e2d8;white-space:nowrap">${dueLbl}</td></tr>`;
+  };
+  const sec = (title, rows) => `<h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">${title} <span style="float:right;font-weight:400">${rows.length}</span></h3>${rows.length?`<table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`:`<p style="color:${taupeC};font-style:italic">— sem tarefas —</p>`}`;
+  const weekBlocks = d.weekDates.map(dt => {
+    const list = d.byDay[dt] || [];
+    if (!list.length) return '';
+    return `<p style="margin:14px 0 4px;font-weight:600;color:${greenC};font-size:12px;letter-spacing:.12em;text-transform:uppercase">${DOW[new Date(dt+'T00:00:00').getDay()]} — ${fmtDate(dt)}</p><table style="width:100%;border-collapse:collapse;font-size:14px">${list.map(row).join('')}</table>`;
+  }).join('');
+  const totalWeek = Object.values(d.byDay).reduce((a,b)=>a+b.length,0);
+  return `<!DOCTYPE html><html><body style="font-family:Georgia,serif;color:#262626;line-height:1.55;max-width:680px;margin:0 auto;padding:24px">
+    <h1 style="color:${greenC};font-size:28px;font-weight:500;letter-spacing:.06em;margin:0 0 4px">Briefing semanal</h1>
+    <p style="color:${taupeC};font-style:italic;margin:0 0 24px">${fmtDate(d.today)} · ${d.overdue.length} vencidas · ${totalWeek} esta semana</p>
+    ${sec('Vencidas', d.overdue.map(row))}
+    <h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">Esta semana <span style="float:right;font-weight:400">${totalWeek}</span></h3>
+    ${weekBlocks || `<p style="color:${taupeC};font-style:italic">— sem prazos esta semana —</p>`}
+    ${sec('Alta prioridade', d.highPri.map(row))}
+    <h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">Semana passada <span style="float:right;font-weight:400">${d.doneLastWeek.length}</span></h3>
+    <p>${d.doneLastWeek.length} ${d.doneLastWeek.length===1?'tarefa concluída':'tarefas concluídas'} na semana passada. Bom trabalho.</p>
+    <hr style="border:none;border-top:1px solid #e5e2d8;margin:32px 0 12px">
+    <p style="font-size:11px;color:#999">BOA Hotels · Gestor de Tarefas — gerado automaticamente</p>
+  </body></html>`;
+}
+window.openBriefing = () => {
+  document.getElementById('briefing-body').innerHTML = buildBriefingHtml();
+  document.getElementById('briefing-date').textContent = 'Semana de ' + fmtDate(todayStr());
+  document.getElementById('briefing-modal').style.display = 'flex';
+  try { localStorage.setItem('myt-briefing-' + isoWeekKey(new Date()), '1'); } catch {}
+};
+window.closeBriefing = () => document.getElementById('briefing-modal').style.display = 'none';
+window.sendBriefingEmail = () => {
+  const html = buildBriefingEmailHtml();
+  const subject = 'Briefing semanal — ' + fmtDate(todayStr());
+  // Gmail compose URL does not support HTML body; fall back to a plain-text condensed version
+  const d = buildBriefingData();
+  const lines = [];
+  lines.push('BRIEFING SEMANAL — ' + fmtDate(d.today));
+  lines.push('');
+  lines.push('VENCIDAS (' + d.overdue.length + ')');
+  d.overdue.forEach(t => lines.push('  • ' + t.title + (t.dueDate ? ' [' + fmtDate(t.dueDate) + ']' : '')));
+  lines.push('');
+  lines.push('ESTA SEMANA');
+  d.weekDates.forEach(dt => {
+    const list = d.byDay[dt] || []; if (!list.length) return;
+    lines.push('  ' + DOW[new Date(dt+'T00:00:00').getDay()] + ' — ' + fmtDate(dt));
+    list.forEach(t => lines.push('    • ' + t.title + (t._sub ? '  ↳ ' + t._sub.text : '')));
+  });
+  lines.push('');
+  lines.push('ALTA PRIORIDADE (' + d.highPri.length + ')');
+  d.highPri.forEach(t => lines.push('  • ' + t.title));
+  lines.push('');
+  lines.push('SEMANA PASSADA — ' + d.doneLastWeek.length + ' concluídas');
+  const body = lines.join('\n');
+  window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+};
+function maybeAutoBriefing() {
+  // Show only on Mondays and only once per week
+  const now = new Date();
+  if (now.getDay() !== 1) return;
+  const key = 'myt-briefing-' + isoWeekKey(now);
+  try { if (localStorage.getItem(key)) return; } catch { return; }
+  // Wait a moment for tasks to load
+  setTimeout(() => { if (tasks.length) openBriefing(); }, 1800);
+}
+
 // ── Google Auth ────────────────────────────────────────────────────────────
 window.openGoogleModal  = () => { document.getElementById('google-modal').style.display = 'flex'; setTimeout(() => document.getElementById('google-cid').focus(), 80); };
 window.closeGoogleModal = () => document.getElementById('google-modal').style.display = 'none';
@@ -1350,7 +1519,7 @@ window.selectView = async function(v) {
 
   if (v === 'dashboard') {
     document.getElementById('main-title').textContent = 'Painel';
-    actions.innerHTML = `<button class="refresh-btn" onclick="renderDashboard()">Atualizar</button>`;
+    actions.innerHTML = `<button class="refresh-btn" onclick="openBriefing()">⌂ Briefing semanal</button><button class="refresh-btn" onclick="renderDashboard()">Atualizar</button>`;
     renderDashboard();
   } else if (v === 'all') {
     document.getElementById('main-title').textContent = 'Todas';
