@@ -1,0 +1,30 @@
+name: Briefing semanal
+
+# Corre todas as 2ª feiras às 07h00 UTC
+# (07h00 inverno Lisboa / 08h00 verão Lisboa — ajusta se quiseres)
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch: # permite executar manualmente em "Actions" no GitHub
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        working-directory: scripts
+        run: npm install --no-audit --no-fund
+
+      - name: Send briefing
+        working-directory: scripts
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SA }}
+          RESEND_KEY:  ${{ secrets.RESEND_KEY }}
+          BRIEFING_TO: ${{ secrets.BRIEFING_TO }}
+        run: node briefing.mjs
