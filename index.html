@@ -564,7 +564,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-e ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-f ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
@@ -867,7 +867,7 @@ function boot(cfg) {
   });
 }
 function startApp() {
-  if (!appStarted) { appStarted = true; subscribe(); setTimeout(() => selectView('dashboard'), 0); installShortcuts(); maybeAutoBriefing(); }
+  if (!appStarted) { appStarted = true; subscribe(); setTimeout(() => selectView('dashboard'), 0); installShortcuts(); maybeAutoBriefing(); setTimeout(handleUrlIntent, 1500); }
   document.getElementById('google-nav').style.display = 'block';
   restoreGoogleToken();
   if (!accessToken) document.getElementById('google-connect-btn').style.display = 'block';
@@ -876,6 +876,53 @@ window.forceReload = () => {
   // Bypass cache by reloading with a unique query string
   location.replace(location.pathname + '?v=' + Date.now());
 };
+
+// ── URL intent (atalho iPhone, share, etc.) ───────────────────────────────
+function clearUrlIntent() {
+  try { history.replaceState({}, '', location.pathname); } catch {}
+}
+async function quickCreateTask({title, date, priority, listId, notes}) {
+  if (!title) return;
+  let dueDate = date || null;
+  if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) dueDate = a; }
+  await addDoc(collection(db,'tasks'), {
+    title,
+    priority: priority || null,
+    dueDate,
+    listId: listId || null,
+    department: null,
+    startDate: todayStr(),
+    status: 'todo',
+    notes: notes || '',
+    subtasks: [],
+    repeat: null,
+    monthDay: null,
+    completed: false,
+    createdAt: serverTimestamp()
+  });
+  showToast('✓ ' + title);
+}
+async function handleUrlIntent() {
+  const p = new URLSearchParams(location.search);
+  const quick = p.get('quick');
+  const isNew = p.has('new');
+  const title = p.get('title') || '';
+  const date  = p.get('date')  || '';
+  const pri   = p.get('priority') || '';
+  if (quick) {
+    await quickCreateTask({title: quick, date, priority: pri});
+    clearUrlIntent();
+    return;
+  }
+  if (isNew || title) {
+    openQuickAdd();
+    if (title) document.getElementById('qa-title').value = title;
+    if (date)  document.getElementById('qa-date').value  = date;
+    if (pri)   document.getElementById('qa-priority').value = pri;
+    setTimeout(() => tmAutoGrow(document.getElementById('qa-title')), 0);
+    clearUrlIntent();
+  }
+}
 function installShortcuts() {
   document.addEventListener('keydown', (e) => {
     // ignore when typing in an input/textarea/contenteditable
