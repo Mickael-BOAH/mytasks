@@ -492,11 +492,11 @@
     <div class="field-row">
       <div class="field">
         <label>Início</label>
-        <input id="sch-start" type="time" style="width:100%">
+        <input id="sch-start" type="time" style="width:100%" onchange="onSchStartChange()">
       </div>
       <div class="field">
         <label>Fim</label>
-        <input id="sch-end" type="time" style="width:100%">
+        <input id="sch-end" type="time" style="width:100%" onchange="onSchEndChange()">
       </div>
     </div>
     <div class="modal-btns">
@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-h ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-i ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
@@ -1324,7 +1324,7 @@ window.taskToCalendar = () => {
   const t = curTask(); if (!t) return;
   if (!accessToken) { showToast('Liga ao Google primeiro (no sidebar)'); return; }
   closeTaskModal();
-  openSchedule(t.id, t.title, t.startDate || t.dueDate);
+  openSchedule(t.id, t.title, t.dueDate || t.startDate);
 };
 window.taskFollowUp = () => {
   const t = curTask(); if (!t) return;
@@ -1612,13 +1612,49 @@ window.emailToTask = async function(subject) {
 };
 
 // ── Schedule task as calendar event ────────────────────────────────────────
+let schedDurationMin = 30; // duração predefinida da reunião (minutos)
+function timeToMin(s)  { if (!s) return 0; const [h,m] = s.split(':').map(Number); return h*60 + (m||0); }
+function minToTime(n)  { n = ((n % 1440) + 1440) % 1440; return String(Math.floor(n/60)).padStart(2,'0') + ':' + String(n%60).padStart(2,'0'); }
+function defaultStartTime() {
+  // Próxima meia-hora a partir de agora (mínimo 09:00)
+  const now = new Date();
+  let m = now.getHours()*60 + now.getMinutes();
+  m = Math.ceil(m / 30) * 30;
+  if (m < 9*60) m = 9*60;
+  if (m > 18*60) m = 9*60; // se depois das 18h, próximo dia às 9
+  return minToTime(m);
+}
 window.openSchedule = function(id, title, dueDate) {
   schedulingTask = {id, title};
+  schedDurationMin = 30;
+  const date = dueDate || todayStr();
+  const isToday = (date === todayStr());
+  const start = isToday ? defaultStartTime() : '09:00';
   document.getElementById('sch-title').value = title;
-  document.getElementById('sch-date').value = dueDate || todayStr();
-  document.getElementById('sch-start').value = '09:00';
-  document.getElementById('sch-end').value = '10:00';
+  document.getElementById('sch-date').value  = date;
+  document.getElementById('sch-start').value = start;
+  document.getElementById('sch-end').value   = minToTime(timeToMin(start) + schedDurationMin);
   document.getElementById('sched-modal').style.display = 'flex';
+};
+window.onSchStartChange = function() {
+  const s = document.getElementById('sch-start').value;
+  if (!s) return;
+  // Mantém a duração atual quando o utilizador muda o início
+  document.getElementById('sch-end').value = minToTime(timeToMin(s) + schedDurationMin);
+};
+window.onSchEndChange = function() {
+  const s = document.getElementById('sch-start').value;
+  const e = document.getElementById('sch-end').value;
+  if (!s || !e) return;
+  let diff = timeToMin(e) - timeToMin(s);
+  if (diff <= 0) {
+    // Se o fim ficou antes do início, repõe duração padrão e ajusta o fim
+    diff = schedDurationMin;
+    document.getElementById('sch-end').value = minToTime(timeToMin(s) + diff);
+    showToast('Fim antes do início → reposto para ' + diff + ' min');
+    return;
+  }
+  schedDurationMin = diff; // memoriza a nova duração escolhida
 };
 window.closeSchedule = () => document.getElementById('sched-modal').style.display = 'none';
 window.confirmSchedule = async function() {
