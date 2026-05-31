@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-z ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-a ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1278,8 +1278,12 @@ const DOC_STYLES = {
   metaLabel:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:9,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   metaValue:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
   metaSep:         { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
-  progressLine:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:500}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
-  subsectionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} }
+  progressLabel:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:9,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  progressBar:     { weightedFontFamily:{fontFamily:'Consolas',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  subsectionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  // Meta cell styles (applied to cells of the real Docs table)
+  metaCellLabel:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:8,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  metaCellValue:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
 };
 
 // Pretty name from email: "maria.silva@boa.pt" -> "Maria Silva"
@@ -1290,7 +1294,6 @@ function nameFromEmail(email) {
 
 function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount, attendees) {
   const segs = [];
-  const pMap = { alta:'High', media:'Medium', baixa:'Low' };
   const list = lists.find(x => x.id === task.listId);
   const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
   const subtitleParts = [];
@@ -1303,28 +1306,19 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   if (subtitle) segs.push({ text: subtitle + '\n', style: 'subtitle' });
   segs.push({ text: meetingLabel + '\n', style: 'subhead' });
 
-  // META row: STATUS · PRIORITY · DUE · REPEAT (inline, label + value pairs)
-  const metaPairs = [];
-  metaPairs.push(['STATUS',   STATUS[task.status]?.label || 'To do']);
-  if (task.priority) metaPairs.push(['PRIORITY', pMap[task.priority] || task.priority]);
-  if (task.dueDate)  metaPairs.push(['DUE',      fmtDate(task.dueDate)]);
-  if (task.repeat)   metaPairs.push(['REPEAT',   REPEAT[task.repeat] || task.repeat]);
-  metaPairs.forEach(([k,v], i) => {
-    if (i > 0) segs.push({ text: '  ·  ', style: 'metaSep' });
-    segs.push({ text: k + ' ',   style: 'metaLabel' });
-    segs.push({ text: v,         style: 'metaValue' });
-  });
-  segs.push({ text: '\n', style: null });
+  // Placeholder for the META TABLE — replaced with real Docs table after insertion
+  segs.push({ text: '[[META_TABLE]]\n', style: null });
 
-  // PROGRESS bar (overall, including done — informational)
+  // PROGRESS bar (text + colored boxes — approximates Word's progress band)
   const allSubs = task.subtasks || [];
   const doneAll = allSubs.filter(s => s.done).length;
   const totalAll = allSubs.length;
   if (totalAll > 0) {
     const pct = Math.round(doneAll / totalAll * 100);
-    const blocks = Math.round(pct / 5); // 20-char bar
+    const blocks = Math.round(pct / 5);
     const bar = '█'.repeat(blocks) + '░'.repeat(20 - blocks);
-    segs.push({ text: `Progress  ${bar}  ${doneAll}/${totalAll} · ${pct}%\n`, style: 'progressLine' });
+    segs.push({ text: `PROGRESS · ${doneAll}/${totalAll} · ${pct}%\n`, style: 'progressLabel' });
+    segs.push({ text: bar + '\n', style: 'progressBar' });
   }
 
   segs.push({ text: '─'.repeat(60) + '\n', style: 'separator' });
@@ -1403,7 +1397,21 @@ function segmentsToRequests(segments, startIdx) {
   return requests;
 }
 
-// Append a new dated meeting section to the linked Doc, fully styled with BOA brand.
+// Helpers for the multi-step table insertion
+async function docFetch(docId, method, body) {
+  const url = method === 'GET'
+    ? `https://docs.googleapis.com/v1/documents/${docId}`
+    : `https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`;
+  const opts = {
+    method,
+    headers: { Authorization: 'Bearer ' + accessToken, ...(body ? {'Content-Type':'application/json'} : {}) }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  return r;
+}
+
+// Append a new dated meeting section to the linked Doc, with REAL Docs table for meta.
 async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, attendees) {
   if (!task?.linkedDoc || !accessToken) return false;
   const docId = parseDocId(task.linkedDoc); if (!docId) return false;
@@ -1411,28 +1419,86 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
   const subs = allSubs.filter(s => !s.due || s.due <= dateStr);
   const futureCount = allSubs.length - subs.length;
 
+  // ── STEP 1: insert text content with placeholder for the meta table ─────
   const segments = buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount, attendees || []);
   const requests = segmentsToRequests(segments, 1);
 
   try {
-    console.log('[Doc write] docId=', docId, 'requests:', requests.length);
-    const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests })
-    });
-    console.log('[Doc write] response status:', resp.status);
+    let resp = await docFetch(docId, 'POST', { requests });
     if (!resp.ok) {
       const errTxt = await resp.text();
-      console.warn('[Doc write] FAILED', resp.status, errTxt);
-      if (resp.status === 401 || resp.status === 403) {
-        showToast('Doc write failed: re-authorize Google (logout + login)');
-      } else if (resp.status === 404) {
-        showToast('Doc not found — check URL or sharing');
-      } else {
-        showToast('Doc write failed (' + resp.status + ') — see console');
-      }
+      console.warn('[Doc write step 1] FAILED', resp.status, errTxt);
+      if (resp.status === 401 || resp.status === 403) showToast('Doc write failed: re-authorize Google');
+      else if (resp.status === 404) showToast('Doc not found — check URL or sharing');
+      else showToast('Doc write failed (' + resp.status + ')');
       return false;
+    }
+
+    // ── STEP 2: re-read, find placeholder paragraph ────────────────────
+    const pMap = { alta:'High', media:'Medium', baixa:'Low' };
+    const list = lists.find(x => x.id === task.listId);
+    const cols = [
+      ['UNIT',       list ? list.name : '—'],
+      ['DEPARTMENT', task.department || '—'],
+      ['STATUS',     STATUS[task.status]?.label || 'To do'],
+      ['PRIORITY',   task.priority ? pMap[task.priority] : '—'],
+      ['CREATED',    task.startDate ? fmtDate(task.startDate) : '—'],
+      ['DUE',        task.dueDate ? fmtDate(task.dueDate) : '—']
+    ];
+
+    let docResp = await docFetch(docId, 'GET');
+    if (!docResp.ok) return true; // placeholder text remains but base content is in
+    let docJson = await docResp.json();
+    const placeholder = (docJson.body?.content || []).find(el => {
+      const t = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
+      return t.startsWith('[[META_TABLE]]');
+    });
+    if (!placeholder) return true;
+
+    // ── STEP 3: delete placeholder + insert real table at that position ──
+    const tableIdx = placeholder.startIndex;
+    resp = await docFetch(docId, 'POST', { requests: [
+      { deleteContentRange: { range: { startIndex: tableIdx, endIndex: placeholder.endIndex } } },
+      { insertTable: { location: { index: tableIdx }, rows: 2, columns: cols.length } }
+    ]});
+    if (!resp.ok) {
+      console.warn('[Doc write step 3 — insert table] FAILED', resp.status, await resp.text());
+      return true; // text content is already there
+    }
+
+    // ── STEP 4: re-read, locate the table cells ────────────────────────
+    docResp = await docFetch(docId, 'GET');
+    if (!docResp.ok) return true;
+    docJson = await docResp.json();
+    const tableEl = (docJson.body?.content || []).find(el => el.startIndex === tableIdx && el.table);
+    if (!tableEl) return true;
+    const rows = tableEl.table.tableRows || [];
+
+    // ── STEP 5: fill cells from LAST to FIRST to preserve indices ──────
+    const fillRequests = [];
+    for (let r = rows.length - 1; r >= 0; r--) {
+      const cellsArr = rows[r].tableCells || [];
+      for (let c = cellsArr.length - 1; c >= 0; c--) {
+        const cell = cellsArr[c];
+        const firstParagraph = cell.content?.find(x => x.paragraph);
+        if (!firstParagraph) continue;
+        const insertIdx = firstParagraph.startIndex;
+        const text = (r === 0 ? cols[c][0] : cols[c][1]);
+        const styleKey = r === 0 ? 'metaCellLabel' : 'metaCellValue';
+        const style = DOC_STYLES[styleKey];
+        fillRequests.push({ insertText: { location: { index: insertIdx }, text } });
+        fillRequests.push({ updateTextStyle: {
+          range: { startIndex: insertIdx, endIndex: insertIdx + text.length },
+          textStyle: style,
+          fields: Object.keys(style).join(',')
+        }});
+      }
+    }
+    if (fillRequests.length) {
+      resp = await docFetch(docId, 'POST', { requests: fillRequests });
+      if (!resp.ok) {
+        console.warn('[Doc write step 5 — fill cells] FAILED', resp.status, await resp.text());
+      }
     }
     return true;
   } catch (e) {
@@ -1489,7 +1555,11 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     // Skip brand-book decorative lines
     if (/^OPEN SUBTASKS/i.test(line)) continue;
     if (line.startsWith('Progress ') && line.includes('%')) continue;
+    if (/^PROGRESS\b/i.test(line)) continue;
+    if (/^[█░]+$/.test(line)) continue;
     if (/^STATUS\b/i.test(line) && line.includes('·')) continue;
+    if (line === '[[META_TABLE]]') continue;
+    // Skip table cells if the parser ever traverses a table (it shouldn't, since we filter by paragraph)
 
     // Discussion area boundary
     if (line.includes('💬') && line.includes('Discussion')) {
@@ -1579,13 +1649,17 @@ function findUpcomingMeetingSection(docJson, taskTitle, today) {
     if (line.startsWith('📋 ')) {
       if (startIdx !== null) { endIdx = el.startIndex; break; }
       if (line.startsWith(headingPrefix)) {
-        const next = body[i+1];
-        const nextTxt = next?.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
-        const dm = nextTxt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        if (dm) {
-          const iso = `${dm[3]}-${dm[2]}-${dm[1]}`;
-          if (iso >= today) { startIdx = el.startIndex; date = iso; }
+        // Scan the next few paragraphs for a date (subtitle line may sit between heading and date)
+        let foundDate = null;
+        for (let j = i+1; j < Math.min(i+5, body.length); j++) {
+          const peek = body[j];
+          if (!peek.paragraph) continue;
+          const peekTxt = peek.paragraph.elements?.map(e => e.textRun?.content || '').join('') || '';
+          if (peekTxt.startsWith('📋 ')) break;
+          const dm = peekTxt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+          if (dm) { foundDate = `${dm[3]}-${dm[2]}-${dm[1]}`; break; }
         }
+        if (foundDate && foundDate >= today) { startIdx = el.startIndex; date = foundDate; }
       }
     }
   }
