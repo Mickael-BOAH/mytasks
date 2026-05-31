@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-y ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-z ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1272,7 +1272,14 @@ const DOC_STYLES = {
   discussionMark:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   attendeeName:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   discussionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
-  discussionBody:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
+  discussionBody:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
+  // Brand-book additions (mirroring the Word export)
+  subtitle:        { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  metaLabel:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:9,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  metaValue:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
+  metaSep:         { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  progressLine:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:500}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  subsectionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} }
 };
 
 // Pretty name from email: "maria.silva@boa.pt" -> "Maria Silva"
@@ -1283,34 +1290,75 @@ function nameFromEmail(email) {
 
 function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount, attendees) {
   const segs = [];
+  const pMap = { alta:'High', media:'Medium', baixa:'Low' };
+  const list = lists.find(x => x.id === task.listId);
   const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
+  const subtitleParts = [];
+  if (list) subtitleParts.push(list.name);
+  if (task.department) subtitleParts.push(task.department);
+  const subtitle = subtitleParts.join(' · ');
+
+  // ── HEADER block (mirrors Word brand book) ─────────────────────────
   segs.push({ text: `📋 ${task.title || 'Meeting'}\n`, style: 'heading' });
-  segs.push({ text: `${meetingLabel}\n`,               style: 'subhead' });
-  segs.push({ text: '─'.repeat(60) + '\n',             style: 'separator' });
+  if (subtitle) segs.push({ text: subtitle + '\n', style: 'subtitle' });
+  segs.push({ text: meetingLabel + '\n', style: 'subhead' });
+
+  // META row: STATUS · PRIORITY · DUE · REPEAT (inline, label + value pairs)
+  const metaPairs = [];
+  metaPairs.push(['STATUS',   STATUS[task.status]?.label || 'To do']);
+  if (task.priority) metaPairs.push(['PRIORITY', pMap[task.priority] || task.priority]);
+  if (task.dueDate)  metaPairs.push(['DUE',      fmtDate(task.dueDate)]);
+  if (task.repeat)   metaPairs.push(['REPEAT',   REPEAT[task.repeat] || task.repeat]);
+  metaPairs.forEach(([k,v], i) => {
+    if (i > 0) segs.push({ text: '  ·  ', style: 'metaSep' });
+    segs.push({ text: k + ' ',   style: 'metaLabel' });
+    segs.push({ text: v,         style: 'metaValue' });
+  });
+  segs.push({ text: '\n', style: null });
+
+  // PROGRESS bar (overall, including done — informational)
+  const allSubs = task.subtasks || [];
+  const doneAll = allSubs.filter(s => s.done).length;
+  const totalAll = allSubs.length;
+  if (totalAll > 0) {
+    const pct = Math.round(doneAll / totalAll * 100);
+    const blocks = Math.round(pct / 5); // 20-char bar
+    const bar = '█'.repeat(blocks) + '░'.repeat(20 - blocks);
+    segs.push({ text: `Progress  ${bar}  ${doneAll}/${totalAll} · ${pct}%\n`, style: 'progressLine' });
+  }
+
+  segs.push({ text: '─'.repeat(60) + '\n', style: 'separator' });
+
+  // ── OPEN SUBTASKS section ─────────────────────────────────────────
   if (subs.length) {
+    segs.push({ text: `OPEN SUBTASKS · ${subs.length} pending\n`, style: 'subsectionLabel' });
+    segs.push({ text: '\n', style: null });
     for (const s of subs) {
       const due = s.due ? '  ('+fmtDate(s.due)+')' : '';
       segs.push({ text: s.text + due + '\n', style: 'subOpen', checkbox: true });
-      // Pre-existing notes
       if (s.notes) {
         for (const nl of s.notes.split('\n')) {
           if (nl.trim()) segs.push({ text: '    ↳ ' + nl + '\n', style: 'note' });
         }
       }
-      // Pre-allocate 2 empty notes slots so user can write multiple notes without losing the arrow
       segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
       segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
     }
   } else {
-    segs.push({ text: '(no agenda items for this date)\n', style: 'empty' });
+    segs.push({ text: '(no open subtasks for this date)\n', style: 'empty' });
   }
-  // Discussion area — per-attendee with Topics (bullets) + Follow-up tasks (checkboxes)
+
+  if (futureCount > 0) {
+    segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
+  }
+
+  // ── DISCUSSION section ────────────────────────────────────────────
   segs.push({ text: '\n', style: null });
-  segs.push({ text: '─── 💬 Discussion · attendees ───\n', style: 'discussionMark' });
-  const list = (attendees && attendees.length) ? attendees : [null];
-  for (const email of list) {
+  segs.push({ text: '💬 DISCUSSION · ATTENDEES\n', style: 'subsectionLabel' });
+  segs.push({ text: '\n', style: null });
+  const attList = (attendees && attendees.length) ? attendees : [null];
+  for (const email of attList) {
     const name = email ? nameFromEmail(email) : 'Open discussion';
-    segs.push({ text: '\n', style: null });
     segs.push({ text: `👤 ${name}\n`, style: 'attendeeName' });
     segs.push({ text: 'Topics:\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
@@ -1318,10 +1366,9 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
     segs.push({ text: 'Follow-up tasks:\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
     segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
+    segs.push({ text: '\n', style: null });
   }
-  if (futureCount > 0) {
-    segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
-  }
+
   segs.push({ text: '\n', style: null });
   return segs;
 }
@@ -1438,6 +1485,11 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     if (/^─+\s*$/.test(line)) continue;
     if (line.startsWith('(+') && line.includes('scheduled for')) continue;
     if (line === '(no agenda items for this date)') continue;
+    if (line === '(no open subtasks for this date)') continue;
+    // Skip brand-book decorative lines
+    if (/^OPEN SUBTASKS/i.test(line)) continue;
+    if (line.startsWith('Progress ') && line.includes('%')) continue;
+    if (/^STATUS\b/i.test(line) && line.includes('·')) continue;
 
     // Discussion area boundary
     if (line.includes('💬') && line.includes('Discussion')) {
