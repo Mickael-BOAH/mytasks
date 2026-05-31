@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-u ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-v ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1268,12 +1268,20 @@ const DOC_STYLES = {
   subDone:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, strikethrough:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   note:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   empty:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
-  futureNote: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
-  discussionMark: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
-  discussionBody: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
+  futureNote:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  discussionMark:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  discussionTip:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  attendeeName:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  discussionBody:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
 };
 
-function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount) {
+// Pretty name from email: "maria.silva@boa.pt" -> "Maria Silva"
+function nameFromEmail(email) {
+  const local = String(email || '').split('@')[0] || '';
+  return local.split(/[._\-]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') || email;
+}
+
+function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount, attendees) {
   const segs = [];
   const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
   segs.push({ text: `📋 ${task.title || 'Meeting'}\n`, style: 'heading' });
@@ -1282,28 +1290,40 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   if (subs.length) {
     for (const s of subs) {
       const due = s.due ? '  ('+fmtDate(s.due)+')' : '';
-      // Subtask line — will get a real Doc checkbox bullet applied later
       segs.push({ text: s.text + due + '\n', style: 'subOpen', checkbox: true });
-      // Pre-existing notes
       if (s.notes) {
         for (const nl of s.notes.split('\n')) {
           if (nl.trim()) segs.push({ text: '    ↳ ' + nl + '\n', style: 'note' });
         }
       }
-      // Empty notes slot for during-meeting writing
       segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
     }
   } else {
     segs.push({ text: '(no agenda items for this date)\n', style: 'empty' });
   }
-  // Discussion area — attendees write topics here (parser skips plain text, captures any checkbox they add)
+  // Discussion area
   segs.push({ text: '\n', style: null });
-  segs.push({ text: '─── 💬 Discussion · attendees write topics below ───\n', style: 'discussionMark' });
-  segs.push({ text: '\n', style: 'discussionBody' }); // empty styled line ready for writing
+  segs.push({ text: '─── 💬 Discussion · attendees ───\n',                              style: 'discussionMark' });
+  segs.push({ text: 'Tip: prefix a line with "→" to turn it into a follow-up task.\n', style: 'discussionTip' });
+  if (attendees && attendees.length) {
+    for (const email of attendees) {
+      const name = nameFromEmail(email);
+      segs.push({ text: '\n', style: null });
+      segs.push({ text: `👤 ${name}\n`, style: 'attendeeName' });
+      // 3 pre-formatted dot bullets ready for typing
+      segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
+      segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
+      segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
+    }
+  } else {
+    // Generic discussion bullets if no attendees specified
+    segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
+    segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
+  }
   if (futureCount > 0) {
     segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
   }
-  segs.push({ text: '\n', style: null }); // blank spacer between meetings
+  segs.push({ text: '\n', style: null });
   return segs;
 }
 
@@ -1312,6 +1332,7 @@ function segmentsToRequests(segments, startIdx) {
   const requests = [{ insertText: { location: { index: startIdx }, text: fullText } }];
   let cursor = startIdx;
   const checkboxRanges = [];
+  const dotRanges = [];
   for (const seg of segments) {
     if (seg.style) {
       const styleObj = DOC_STYLES[seg.style];
@@ -1323,31 +1344,28 @@ function segmentsToRequests(segments, startIdx) {
         }
       });
     }
-    if (seg.checkbox) {
-      // Each subtask paragraph becomes a real Google Docs checkbox bullet (interactive)
-      checkboxRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
-    }
+    if (seg.checkbox) checkboxRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
+    if (seg.bulletDot) dotRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
     cursor += seg.text.length;
   }
-  // Apply checkbox bullets after all text + styles (one request per checkbox paragraph
-  // — combining ranges in one request would also bullet the notes between them)
   for (const range of checkboxRanges) {
-    requests.push({
-      createParagraphBullets: { range, bulletPreset: 'BULLET_CHECKBOX' }
-    });
+    requests.push({ createParagraphBullets: { range, bulletPreset: 'BULLET_CHECKBOX' } });
+  }
+  for (const range of dotRanges) {
+    requests.push({ createParagraphBullets: { range, bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE' } });
   }
   return requests;
 }
 
 // Append a new dated meeting section to the linked Doc, fully styled with BOA brand.
-async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
+async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, attendees) {
   if (!task?.linkedDoc || !accessToken) return false;
   const docId = parseDocId(task.linkedDoc); if (!docId) return false;
   const allSubs = (task.subtasks || []).filter(s => !s.done);
   const subs = allSubs.filter(s => !s.due || s.due <= dateStr);
   const futureCount = allSubs.length - subs.length;
 
-  const segments = buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount);
+  const segments = buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount, attendees || []);
   const requests = segmentsToRequests(segments, 1);
 
   try {
@@ -1384,6 +1402,8 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
   const body = docJson.body?.content || [];
   const headingPrefix = '📋 ' + (taskTitle || '');
   let inSection = false;
+  let inDiscussion = false;
+  let currentAttendee = null;
   let sectionDate = null;
   const items = [];
   let current = null;
@@ -1394,26 +1414,25 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     const runs = el.paragraph.elements || [];
     const txt = runs.map(e => e.textRun?.content || '').join('');
     const line = txt.replace(/\n+$/, '');
-    const hasBullet = !!el.paragraph.bullet; // real Doc bullet (checkbox)
-    // A checkbox paragraph is "done" when Docs auto-applies strikethrough to all its text runs
+    const hasBullet = !!el.paragraph.bullet;
     const allStrike = runs.length > 0 && runs.every(r => !r.textRun || (r.textRun.textStyle?.strikethrough === true));
 
     if (!line.trim() && !hasBullet) continue;
 
-    // Heading detection (still text-only, not a bullet)
+    // Heading detection
     if (!hasBullet && line.startsWith(headingPrefix)) {
-      if (inSection) break; // next section reached, stop
+      if (inSection) break;
       inSection = true;
+      inDiscussion = false;
+      currentAttendee = null;
       continue;
     }
-    // Different task heading → our section ended
     if (!hasBullet && line.startsWith('📋 ')) {
       if (inSection) break;
       continue;
     }
     if (!inSection) continue;
 
-    // Date subhead (right after heading)
     if (!sectionDate && !hasBullet) {
       const dm = line.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       if (dm) { sectionDate = `${dm[3]}-${dm[2]}-${dm[1]}`; continue; }
@@ -1421,38 +1440,64 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     if (/^─+\s*$/.test(line)) continue;
     if (line.startsWith('(+') && line.includes('scheduled for')) continue;
     if (line === '(no agenda items for this date)') continue;
-    // Discussion area marker — anything beyond this is free attendee text (only checkboxes get picked up)
-    if (line.includes('💬') && line.includes('Discussion')) { flush(); continue; }
+    if (line.startsWith('Tip:') && line.includes('→')) continue; // skip the discussion tip
 
-    // Subtask: a paragraph with a bullet (real Docs checkbox) OR legacy ☐/☑ text
-    if (hasBullet) {
-      flush();
-      let txt = line.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
-      if (!txt) continue;
-      current = { text: txt, done: allStrike, notes: '' };
+    // Discussion area boundary
+    if (line.includes('💬') && line.includes('Discussion')) {
+      flush(); inDiscussion = true; currentAttendee = null;
       continue;
     }
-    const legacyMatch = line.match(/^\s*([☐☑■□✅✓✗❌])\s+(.+)$/);
-    if (legacyMatch) {
+    // Attendee header (only meaningful in discussion area)
+    if (inDiscussion && line.startsWith('👤 ')) {
       flush();
-      const symbol = legacyMatch[1];
-      let txt = legacyMatch[2].replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
-      const done = ['☑','■','✅','✓'].includes(symbol);
-      current = { text: txt, done, notes: '' };
+      currentAttendee = line.replace('👤 ', '').trim();
       continue;
     }
 
-    // Note line: indented or starts with > → ↳ —
-    if (/^(\s+|>|→|↳|—|–|\-\s)/.test(line) && current) {
-      const noteTxt = line.replace(/^[\s>→↳—–\-]+/, '').trim();
-      // Skip empty notes slots (we pre-insert "    ↳ " which becomes "    ↳ " — empty after arrow)
-      if (noteTxt) current.notes += (current.notes ? '\n' : '') + noteTxt;
+    // ── AGENDA AREA (above discussion marker) ──
+    if (!inDiscussion) {
+      // Subtask: checkbox bullet or legacy ☐/☑ text
+      if (hasBullet) {
+        flush();
+        let cleanTxt = line.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
+        if (!cleanTxt) continue;
+        current = { text: cleanTxt, done: allStrike, notes: '' };
+        continue;
+      }
+      const legacy = line.match(/^\s*([☐☑■□✅✓✗❌])\s+(.+)$/);
+      if (legacy) {
+        flush();
+        const sym = legacy[1];
+        let cleanTxt = legacy[2].replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
+        current = { text: cleanTxt, done: ['☑','■','✅','✓'].includes(sym), notes: '' };
+        continue;
+      }
+      // Note line (↳ etc.) — attach to current
+      if (/^(\s+|>|→|↳|—|–|\-\s)/.test(line) && current) {
+        const noteTxt = line.replace(/^[\s>→↳—–\-]+/, '').trim();
+        if (noteTxt) current.notes += (current.notes ? '\n' : '') + noteTxt;
+        continue;
+      }
+      if (current && line.trim()) {
+        current.notes += (current.notes ? '\n' : '') + line.trim();
+      }
       continue;
     }
-    // Free text within section — attach to current subtask
-    if (current && line.trim()) {
-      current.notes += (current.notes ? '\n' : '') + line.trim();
+
+    // ── DISCUSSION AREA ──
+    // Any line (bullet or plain) that starts with "→ " becomes a new follow-up task
+    const arrowMatch = line.match(/^\s*→\s+(.+)$/);
+    if (arrowMatch) {
+      flush();
+      current = {
+        text: arrowMatch[1].trim(),
+        done: false,
+        notes: currentAttendee ? `Requested by: ${currentAttendee}` : ''
+      };
+      continue;
     }
+    // Everything else in discussion area is just attendee discussion — ignored for sync
+    // (stays in the Doc as historical record)
   }
   flush();
   return { found: inSection, sectionDate, items };
@@ -2169,7 +2214,7 @@ window.confirmSchedule = async function() {
     // If the source task has a linked Doc, also append a meeting section to it
     let docAppended = false;
     if (srcTask?.linkedDoc) {
-      docAppended = await appendMeetingSectionToDoc(srcTask, date, start, end);
+      docAppended = await appendMeetingSectionToDoc(srcTask, date, start, end, attendees.map(a => a.email));
     }
     let msg = 'Event created in calendar';
     if (docId && docAppended) msg = 'Event created · Doc attached + meeting section added ✓';
