@@ -10,6 +10,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Tasks — BOA">
   <meta name="theme-color" content="#233b34">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>Tasks — BOA Hotels</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -578,12 +581,14 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-g ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-h ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
     </button>
-    <a class="google-connected" style="cursor:pointer;display:block;margin-top:10px" onclick="logout()">Terminar sessão →</a>
+    <a id="push-enable-link" class="google-connected" style="cursor:pointer;display:none;margin-top:10px" onclick="enablePush()">Enable notifications →</a>
+    <div id="push-status" class="google-connected" style="display:none;margin-top:10px">● Notifications on</div>
+    <a class="google-connected" style="cursor:pointer;display:block;margin-top:10px" onclick="logout()">Sign out →</a>
   </div>
 </div>
 
@@ -837,7 +842,7 @@
 <script type="module">
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
-  getFirestore, collection, addDoc, onSnapshot,
+  getFirestore, collection, addDoc, setDoc, onSnapshot,
   doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, getDocs, where
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
@@ -2396,6 +2401,90 @@ window.doLogin = async () => {
 };
 window.connectGoogle = () => doLogin();
 window.logout = async () => { localStorage.removeItem('myt-gtok'); try { await signOut(auth); } catch {} location.reload(); };
+
+// ── Web Push notifications ────────────────────────────────────────────────
+// VAPID public key — generated once via npx web-push generate-vapid-keys.
+// Public key is safe to expose; private key lives only in GitHub Secrets.
+const VAPID_PUBLIC_KEY = ''; // ← will be set by user via Settings (see setup docs)
+
+function urlBase64ToUint8Array(base64) {
+  const padding = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js');
+    return reg;
+  } catch (e) { console.warn('SW registration failed', e); return null; }
+}
+async function getPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return await reg.pushManager.getSubscription();
+}
+async function refreshPushUI() {
+  const enableLink = document.getElementById('push-enable-link');
+  const statusEl   = document.getElementById('push-status');
+  if (!enableLink || !statusEl) return;
+  const supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+  if (!supported) { enableLink.style.display = 'none'; statusEl.style.display = 'none'; return; }
+  const sub = await getPushSubscription();
+  if (sub) {
+    enableLink.style.display = 'none';
+    statusEl.style.display = 'block';
+  } else {
+    enableLink.style.display = 'block';
+    statusEl.style.display = 'none';
+  }
+}
+window.enablePush = async () => {
+  if (!VAPID_PUBLIC_KEY) {
+    alert('Push not configured yet. Setup needed: generate VAPID keys and paste public key into VAPID_PUBLIC_KEY in index.html. See README/setup docs.');
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    alert('Notifications were blocked. Re-enable in browser/site settings.');
+    return;
+  }
+  const reg = await registerServiceWorker();
+  if (!reg) { showToast('Service worker not supported'); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') { showToast('Permission denied'); return; }
+  try {
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    const json = sub.toJSON();
+    // Save subscription to Firestore so the daily-push GitHub Action can send to this device
+    if (auth?.currentUser?.email) {
+      const id = (auth.currentUser.email + '__' + (navigator.userAgent.slice(0,50))).replace(/[^a-zA-Z0-9_@.-]/g,'_');
+      await setDoc(doc(db,'pushSubs',id), {
+        email: auth.currentUser.email,
+        endpoint: json.endpoint,
+        keys: json.keys,
+        ua: navigator.userAgent,
+        createdAt: serverTimestamp()
+      });
+    }
+    await refreshPushUI();
+    showToast('Notifications enabled ✓');
+    // Send a quick local notification so user sees it works
+    try { reg.showNotification('BOA Tasks', { body:'Notifications are enabled ✓', icon:'icon.svg' }); } catch {}
+  } catch (e) {
+    console.warn('Push subscribe failed', e);
+    showToast('Could not subscribe — see console');
+  }
+};
+// Auto-register SW on app start (without requesting subscription)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(refreshPushUI).catch(() => {});
+}
 
 function googleExpired() {
   accessToken = null;

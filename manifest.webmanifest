@@ -1,0 +1,14 @@
+{
+  "name": "BOA Tasks",
+  "short_name": "Tasks",
+  "description": "BOA Hotels — Task Manager",
+  "start_url": "/mytasks/",
+  "scope": "/mytasks/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e2dfd6",
+  "theme_color": "#233b34",
+  "icons": [
+    { "src": "icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any maskable" }
+  ]
+}
