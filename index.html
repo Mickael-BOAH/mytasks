@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-v ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-w ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1270,8 +1270,8 @@ const DOC_STYLES = {
   empty:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   futureNote:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   discussionMark:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
-  discussionTip:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   attendeeName:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  discussionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   discussionBody:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
 };
 
@@ -1291,34 +1291,33 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
     for (const s of subs) {
       const due = s.due ? '  ('+fmtDate(s.due)+')' : '';
       segs.push({ text: s.text + due + '\n', style: 'subOpen', checkbox: true });
+      // Pre-existing notes
       if (s.notes) {
         for (const nl of s.notes.split('\n')) {
           if (nl.trim()) segs.push({ text: '    ↳ ' + nl + '\n', style: 'note' });
         }
       }
+      // Pre-allocate 2 empty notes slots so user can write multiple notes without losing the arrow
+      segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
       segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
     }
   } else {
     segs.push({ text: '(no agenda items for this date)\n', style: 'empty' });
   }
-  // Discussion area
+  // Discussion area — per-attendee with Topics (bullets) + Follow-up tasks (checkboxes)
   segs.push({ text: '\n', style: null });
-  segs.push({ text: '─── 💬 Discussion · attendees ───\n',                              style: 'discussionMark' });
-  segs.push({ text: 'Tip: prefix a line with "→" to turn it into a follow-up task.\n', style: 'discussionTip' });
-  if (attendees && attendees.length) {
-    for (const email of attendees) {
-      const name = nameFromEmail(email);
-      segs.push({ text: '\n', style: null });
-      segs.push({ text: `👤 ${name}\n`, style: 'attendeeName' });
-      // 3 pre-formatted dot bullets ready for typing
-      segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
-      segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
-      segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
-    }
-  } else {
-    // Generic discussion bullets if no attendees specified
+  segs.push({ text: '─── 💬 Discussion · attendees ───\n', style: 'discussionMark' });
+  const list = (attendees && attendees.length) ? attendees : [null];
+  for (const email of list) {
+    const name = email ? nameFromEmail(email) : 'Open discussion';
+    segs.push({ text: '\n', style: null });
+    segs.push({ text: `👤 ${name}\n`, style: 'attendeeName' });
+    segs.push({ text: 'Topics:\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
+    segs.push({ text: 'Follow-up tasks:\n', style: 'discussionLabel' });
+    segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
+    segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
   }
   if (futureCount > 0) {
     segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
@@ -1403,6 +1402,7 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
   const headingPrefix = '📋 ' + (taskTitle || '');
   let inSection = false;
   let inDiscussion = false;
+  let inDiscussionType = null; // 'topics' | 'tasks' | null
   let currentAttendee = null;
   let sectionDate = null;
   const items = [];
@@ -1419,12 +1419,10 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
 
     if (!line.trim() && !hasBullet) continue;
 
-    // Heading detection
+    // Heading
     if (!hasBullet && line.startsWith(headingPrefix)) {
       if (inSection) break;
-      inSection = true;
-      inDiscussion = false;
-      currentAttendee = null;
+      inSection = true; inDiscussion = false; inDiscussionType = null; currentAttendee = null;
       continue;
     }
     if (!hasBullet && line.startsWith('📋 ')) {
@@ -1440,23 +1438,25 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     if (/^─+\s*$/.test(line)) continue;
     if (line.startsWith('(+') && line.includes('scheduled for')) continue;
     if (line === '(no agenda items for this date)') continue;
-    if (line.startsWith('Tip:') && line.includes('→')) continue; // skip the discussion tip
 
     // Discussion area boundary
     if (line.includes('💬') && line.includes('Discussion')) {
-      flush(); inDiscussion = true; currentAttendee = null;
+      flush(); inDiscussion = true; inDiscussionType = null; currentAttendee = null;
       continue;
     }
-    // Attendee header (only meaningful in discussion area)
+    // Attendee header
     if (inDiscussion && line.startsWith('👤 ')) {
       flush();
       currentAttendee = line.replace('👤 ', '').trim();
+      inDiscussionType = null;
       continue;
     }
+    // Section labels inside discussion
+    if (inDiscussion && /^Topics:/i.test(line))           { inDiscussionType = 'topics'; continue; }
+    if (inDiscussion && /^Follow-?up tasks:/i.test(line)) { inDiscussionType = 'tasks'; continue; }
 
-    // ── AGENDA AREA (above discussion marker) ──
+    // ── AGENDA AREA ──
     if (!inDiscussion) {
-      // Subtask: checkbox bullet or legacy ☐/☑ text
       if (hasBullet) {
         flush();
         let cleanTxt = line.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
@@ -1472,9 +1472,9 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
         current = { text: cleanTxt, done: ['☑','■','✅','✓'].includes(sym), notes: '' };
         continue;
       }
-      // Note line (↳ etc.) — attach to current
-      if (/^(\s+|>|→|↳|—|–|\-\s)/.test(line) && current) {
-        const noteTxt = line.replace(/^[\s>→↳—–\-]+/, '').trim();
+      // Note line attached to current subtask (skip the empty "    ↳ " slot lines)
+      if (/^(\s+|>|↳|—|–|\-\s)/.test(line) && current) {
+        const noteTxt = line.replace(/^[\s>↳—–\-]+/, '').trim();
         if (noteTxt) current.notes += (current.notes ? '\n' : '') + noteTxt;
         continue;
       }
@@ -1485,7 +1485,20 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     }
 
     // ── DISCUSSION AREA ──
-    // Any line (bullet or plain) that starts with "→ " becomes a new follow-up task
+    // Bullets under "Follow-up tasks:" become new tasks for the user.
+    // Bullets under "Topics:" or anywhere else: stay as discussion (ignored).
+    if (hasBullet && inDiscussionType === 'tasks') {
+      const taskText = line.trim();
+      if (!taskText) continue; // skip empty pre-allocated slots
+      flush();
+      current = {
+        text: taskText,
+        done: allStrike,
+        notes: currentAttendee ? `Requested by: ${currentAttendee}` : ''
+      };
+      continue;
+    }
+    // Backward-compat: legacy "→ text" lines still convert
     const arrowMatch = line.match(/^\s*→\s+(.+)$/);
     if (arrowMatch) {
       flush();
@@ -1496,8 +1509,7 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
       };
       continue;
     }
-    // Everything else in discussion area is just attendee discussion — ignored for sync
-    // (stays in the Doc as historical record)
+    // Anything else in discussion → ignored (free attendee text)
   }
   flush();
   return { found: inSection, sectionDate, items };
