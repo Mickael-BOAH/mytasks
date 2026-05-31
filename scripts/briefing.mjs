@@ -1,27 +1,27 @@
-// Briefing semanal — corre via GitHub Actions todas as 2ª feiras.
-// Lê tarefas do Firestore (Admin SDK, ignora rules) e envia email via Resend.
+// Weekly briefing — runs via GitHub Actions every Monday.
+// Reads tasks from Firestore (Admin SDK, bypasses rules) and sends email via Resend.
 
 import admin from 'firebase-admin';
 
-// ── Env / inicialização ──────────────────────────────────────────────────────
+// ── Env / init ──────────────────────────────────────────────────────────────
 const { FIREBASE_SA, RESEND_KEY, BRIEFING_TO } = process.env;
-if (!FIREBASE_SA) throw new Error('FIREBASE_SA secret em falta');
-if (!RESEND_KEY)  throw new Error('RESEND_KEY secret em falta');
-if (!BRIEFING_TO) throw new Error('BRIEFING_TO secret em falta');
+if (!FIREBASE_SA) throw new Error('FIREBASE_SA secret missing');
+if (!RESEND_KEY)  throw new Error('RESEND_KEY secret missing');
+if (!BRIEFING_TO) throw new Error('BRIEFING_TO secret missing');
 
 const sa = JSON.parse(FIREBASE_SA);
 admin.initializeApp({ credential: admin.credential.cert(sa) });
 const db = admin.firestore();
 
-// ── Helpers (espelham a app) ─────────────────────────────────────────────────
-const DOW   = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-const MONTH = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// ── Helpers (mirror the app) ────────────────────────────────────────────────
+const DOW   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTH = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const pad = n => String(n).padStart(2,'0');
 const fmtISO = d => d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 const fmtDate = (s) => { if (!s) return ''; const [y,m,d] = s.split('-'); return `${d} ${MONTH[+m-1].toLowerCase()}`; };
 const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// ── Carrega dados ────────────────────────────────────────────────────────────
+// ── Load data ───────────────────────────────────────────────────────────────
 const [tasksSnap, listsSnap] = await Promise.all([
   db.collection('tasks').get(),
   db.collection('lists').get()
@@ -30,7 +30,7 @@ const tasks = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 const lists = listsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 const listOf = t => lists.find(l => l.id === t.listId)?.name || '';
 
-// ── Constrói briefing ────────────────────────────────────────────────────────
+// ── Build briefing ──────────────────────────────────────────────────────────
 const now = new Date();
 const today = fmtISO(now);
 const day = now.getDay() || 7;
@@ -57,7 +57,7 @@ active.forEach(t => {
 const doneLastWeek = tasks.filter(t => t.completed && t.completedAt && t.completedAt >= lastMonStartTs && t.completedAt < mondayTs);
 const totalWeek = Object.values(byDay).reduce((a,b) => a + b.length, 0);
 
-// ── HTML do email ────────────────────────────────────────────────────────────
+// ── Email HTML ──────────────────────────────────────────────────────────────
 const G = '#233b34', T = '#aca497';
 const row = (t) => {
   const tag = listOf(t);
@@ -66,31 +66,31 @@ const row = (t) => {
 };
 const sec = (title, rows) =>
   `<h3 style="color:${G};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:26px 0 6px;border-bottom:2px solid ${G};padding-bottom:5px;font-weight:600">${title}<span style="float:right;font-weight:400">${rows.length}</span></h3>` +
-  (rows.length ? `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>` : `<p style="color:${T};font-style:italic;font-size:13px">— sem tarefas —</p>`);
+  (rows.length ? `<table style="width:100%;border-collapse:collapse">${rows.join('')}</table>` : `<p style="color:${T};font-style:italic;font-size:13px">— no tasks —</p>`);
 
 const weekBlocks = weekDates.map(dt => {
   const list = byDay[dt] || []; if (!list.length) return '';
   return `<p style="margin:16px 0 4px;font-weight:600;color:${G};font-size:12px;letter-spacing:.14em;text-transform:uppercase">${DOW[new Date(dt+'T00:00:00').getDay()]} — ${fmtDate(dt)}</p><table style="width:100%;border-collapse:collapse">${list.map(row).join('')}</table>`;
-}).join('') || `<p style="color:${T};font-style:italic;font-size:13px">— sem prazos esta semana —</p>`;
+}).join('') || `<p style="color:${T};font-style:italic;font-size:13px">— no deadlines this week —</p>`;
 
 const html = `<!DOCTYPE html><html><body style="font-family:Georgia,'Cormorant Garamond',serif;color:#262626;line-height:1.55;max-width:680px;margin:0 auto;padding:28px;background:#e2dfd6">
   <div style="background:#f5f3ec;padding:28px 32px;border:1px solid rgba(172,164,151,.3)">
-    <h1 style="color:${G};font-size:30px;font-weight:500;letter-spacing:.06em;margin:0 0 6px">Briefing semanal</h1>
-    <p style="color:${T};font-style:italic;margin:0 0 24px;font-size:14px">${fmtDate(today)} · ${overdue.length} vencidas · ${totalWeek} esta semana</p>
-    ${sec('Vencidas', overdue.map(row))}
-    <h3 style="color:${G};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:26px 0 6px;border-bottom:2px solid ${G};padding-bottom:5px;font-weight:600">Esta semana<span style="float:right;font-weight:400">${totalWeek}</span></h3>
+    <h1 style="color:${G};font-size:30px;font-weight:500;letter-spacing:.06em;margin:0 0 6px">Weekly briefing</h1>
+    <p style="color:${T};font-style:italic;margin:0 0 24px;font-size:14px">${fmtDate(today)} · ${overdue.length} overdue · ${totalWeek} this week</p>
+    ${sec('Overdue', overdue.map(row))}
+    <h3 style="color:${G};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:26px 0 6px;border-bottom:2px solid ${G};padding-bottom:5px;font-weight:600">This week<span style="float:right;font-weight:400">${totalWeek}</span></h3>
     ${weekBlocks}
-    ${sec('Alta prioridade', highPri.map(row))}
-    <h3 style="color:${G};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:26px 0 6px;border-bottom:2px solid ${G};padding-bottom:5px;font-weight:600">Semana passada<span style="float:right;font-weight:400">${doneLastWeek.length}</span></h3>
-    <p style="font-size:14px">${doneLastWeek.length} ${doneLastWeek.length === 1 ? 'tarefa concluída' : 'tarefas concluídas'} na semana passada. Bom trabalho. ✦</p>
+    ${sec('High priority', highPri.map(row))}
+    <h3 style="color:${G};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:26px 0 6px;border-bottom:2px solid ${G};padding-bottom:5px;font-weight:600">Last week<span style="float:right;font-weight:400">${doneLastWeek.length}</span></h3>
+    <p style="font-size:14px">${doneLastWeek.length} ${doneLastWeek.length === 1 ? 'task completed' : 'tasks completed'} last week. Good work. ✦</p>
     <hr style="border:none;border-top:1px solid #e5e2d8;margin:32px 0 12px">
-    <p style="font-size:11px;color:#999;text-align:center">BOA Hotels · Gestor de Tarefas — gerado automaticamente</p>
+    <p style="font-size:11px;color:#999;text-align:center">BOA Hotels · Task Manager — auto-generated</p>
   </div>
 </body></html>`;
 
-const subject = `Briefing semanal — ${fmtDate(today)}`;
+const subject = `Weekly briefing — ${fmtDate(today)}`;
 
-// ── Envia via Resend ─────────────────────────────────────────────────────────
+// ── Send via Resend ─────────────────────────────────────────────────────────
 const resp = await fetch('https://api.resend.com/emails', {
   method: 'POST',
   headers: {
@@ -110,4 +110,4 @@ if (!resp.ok) {
   console.error('Resend error', resp.status, out);
   process.exit(1);
 }
-console.log('Briefing enviado:', out);
+console.log('Briefing sent:', out);

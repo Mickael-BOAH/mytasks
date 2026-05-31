@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -423,10 +423,10 @@
       </svg>
       <span class="wordmark">BOA Hotels</span>
     </div>
-    <h1>Gestor de Tarefas</h1>
-    <p class="sub">Entra com a tua conta Google para acederes às tuas tarefas — liga automaticamente a agenda e o email.</p>
+    <h1>Task Manager</h1>
+    <p class="sub">Entra com a tua conta Google para acederes às tuas tasks — liga automaticamente the calendar e o email.</p>
     <div id="setup-error"></div>
-    <button class="btn-connect" onclick="doLogin()">Entrar com Google</button>
+    <button class="btn-connect" onclick="doLogin()">Sign in with Google</button>
   </div>
 </div>
 
@@ -446,7 +446,7 @@
       <br>Para acesso permanente nas Regras: <code>allow read, write: if true;</code>
     </div>
     <div class="modal-btns">
-      <button class="btn-cancel" onclick="document.getElementById('guide-overlay').style.display='none'">Fechar</button>
+      <button class="btn-cancel" onclick="document.getElementById('guide-overlay').style.display='none'">Close</button>
     </div>
   </div>
 </div>
@@ -454,7 +454,7 @@
 <!-- ══ GOOGLE SETUP MODAL ══ -->
 <div id="google-modal" class="overlay" style="display:none;">
   <div class="modal" style="max-width:460px;">
-    <h3>Ligar ao Google</h3>
+    <h3>Connect to Google</h3>
     <div class="field">
       <label>Google OAuth Client ID</label>
       <input id="google-cid" type="text" placeholder="123456789-abc.apps.googleusercontent.com">
@@ -471,8 +471,8 @@
     </div>
     <div id="google-modal-error" style="color:#7a3030;font-size:13px;font-style:italic;display:none;margin-bottom:8px;"></div>
     <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeGoogleModal()">Cancelar</button>
-      <button class="btn-add btn-ok" onclick="initGoogle()">Ligar ao Google</button>
+      <button class="btn-cancel" onclick="closeGoogleModal()">Cancel</button>
+      <button class="btn-add btn-ok" onclick="initGoogle()">Connect to Google</button>
     </div>
   </div>
 </div>
@@ -480,28 +480,28 @@
 <!-- ══ SCHEDULE EVENT MODAL ══ -->
 <div id="sched-modal" class="overlay" style="display:none;">
   <div class="modal">
-    <h3>Agendar no Calendário</h3>
+    <h3>Schedule on Calendar</h3>
     <div class="field">
-      <label>Título do evento</label>
+      <label>Event title</label>
       <input id="sch-title" type="text">
     </div>
     <div class="field">
-      <label>Data</label>
+      <label>Date</label>
       <input id="sch-date" type="date" style="width:100%">
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Início</label>
+        <label>Start</label>
         <input id="sch-start" type="time" style="width:100%" onchange="onSchStartChange()">
       </div>
       <div class="field">
-        <label>Fim</label>
+        <label>End</label>
         <input id="sch-end" type="time" style="width:100%" onchange="onSchEndChange()">
       </div>
     </div>
     <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeSchedule()">Cancelar</button>
-      <button class="btn-add btn-ok" onclick="confirmSchedule()">Criar evento</button>
+      <button class="btn-cancel" onclick="closeSchedule()">Cancel</button>
+      <button class="btn-add btn-ok" onclick="confirmSchedule()">Create event</button>
     </div>
   </div>
 </div>
@@ -526,34 +526,34 @@
 
   <nav class="sb-nav">
     <!-- Tasks -->
-    <div class="nav-section">Tarefas</div>
+    <div class="nav-section">Tasks</div>
     <div class="nav-item active" id="nav-dashboard" onclick="selectView('dashboard')">
       <span style="font-size:13px;opacity:.6">▦</span>
-      <span>Painel</span>
+      <span>Dashboard</span>
     </div>
     <div class="nav-item" id="nav-all" onclick="selectView('all')">
       <span style="font-size:13px;opacity:.6">◻</span>
-      <span>Todas</span>
+      <span>All</span>
       <span class="badge" id="b-all"></span>
     </div>
     <div class="nav-item" id="nav-today" onclick="selectView('today')">
       <span style="font-size:13px;opacity:.6">◈</span>
-      <span>Hoje</span>
+      <span>Today</span>
       <span class="badge" id="b-today"></span>
     </div>
     <div class="nav-item" id="nav-done" onclick="selectView('done')">
       <span style="font-size:13px;opacity:.6">✓</span>
-      <span>Concluídas</span>
+      <span>Completed</span>
       <span class="badge" id="b-done"></span>
     </div>
 
-    <div class="nav-section">As minhas listas</div>
+    <div class="nav-section">My lists</div>
     <div id="lists-nav"></div>
     <div class="add-list-row" onclick="openAddList()">
       <span style="font-size:18px;font-weight:200;line-height:1">+</span> Nova lista
     </div>
     <div class="add-list-row" onclick="openTpl()">
-      <span style="font-size:13px;line-height:1">▤</span> Modelos
+      <span style="font-size:13px;line-height:1">▤</span> Templates
     </div>
     <div id="tpl-nav"></div>
 
@@ -562,7 +562,7 @@
       <div class="nav-section">Google</div>
       <div class="nav-item" id="nav-calendar" onclick="selectView('calendar')">
         <span style="font-size:13px;opacity:.6">◷</span>
-        <span>Calendário</span>
+        <span>Calendar</span>
       </div>
       <div class="nav-item" id="nav-emails" onclick="selectView('emails')">
         <span style="font-size:13px;opacity:.6">◎</span>
@@ -573,11 +573,11 @@
   </nav>
 
   <div class="sb-footer">
-    <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-i ⟳</div>
-    <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
+    <div class="sb-status" id="sync-status">Connecting…</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-j ⟳</div>
+    <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
-      Ligar ao Google →
+      Connect to Google →
     </button>
     <a class="google-connected" style="cursor:pointer;display:block;margin-top:10px" onclick="logout()">Terminar sessão →</a>
   </div>
@@ -588,51 +588,51 @@
   <div class="main-header">
     <button class="hamburger" onclick="openSidebar()">☰</button>
     <div class="header-dot" id="header-dot"></div>
-    <h2 id="main-title">Todas</h2>
+    <h2 id="main-title">All</h2>
     <div id="header-actions" style="display:flex;gap:8px;align-items:center;"></div>
-    <button class="btn-newtask" id="header-newtask" onclick="openQuickAdd()">+ Nova tarefa<span class="kbd">N</span></button>
+    <button class="btn-newtask" id="header-newtask" onclick="openQuickAdd()">+ New task<span class="kbd">N</span></button>
   </div>
 
   <div class="filter-bar" id="filter-bar" style="display:none;">
-    <input id="f-search" class="f-search" placeholder="Procurar…" oninput="applyFilters()">
+    <input id="f-search" class="f-search" placeholder="Search…" oninput="applyFilters()">
     <select id="f-status" onchange="applyFilters()">
-      <option value="">Estado: todos</option>
-      <option value="todo">Por fazer</option>
-      <option value="doing">Em curso</option>
-      <option value="blocked">Bloqueada</option>
-      <option value="waiting">À espera</option>
-      <option value="done">Concluída</option>
+      <option value="">Status: all</option>
+      <option value="todo">To do</option>
+      <option value="doing">In progress</option>
+      <option value="blocked">Blocked</option>
+      <option value="waiting">Waiting</option>
+      <option value="done">Done</option>
     </select>
     <select id="f-priority" onchange="applyFilters()">
-      <option value="">Prioridade: todas</option>
-      <option value="alta">Alta</option>
-      <option value="media">Média</option>
-      <option value="baixa">Baixa</option>
+      <option value="">Priority: all</option>
+      <option value="alta">High</option>
+      <option value="media">Medium</option>
+      <option value="baixa">Low</option>
     </select>
-    <button class="f-chip" id="f-today" onclick="toggleQuick('today')">Hoje</button>
-    <button class="f-chip" id="f-overdue" onclick="toggleQuick('overdue')">Vencidas</button>
-    <button class="f-clear" id="f-clear" onclick="clearFilters()" style="display:none">Limpar</button>
+    <button class="f-chip" id="f-today" onclick="toggleQuick('today')">Today</button>
+    <button class="f-chip" id="f-overdue" onclick="toggleQuick('overdue')">Overdue</button>
+    <button class="f-clear" id="f-clear" onclick="clearFilters()" style="display:none">Clear</button>
   </div>
 
   <div class="tasks-wrap" id="tasks-wrap">
-    <div class="empty-state"><div class="ico">—</div><p>Sem tarefas ainda.<br>Adiciona a tua primeira tarefa.</p></div>
+    <div class="empty-state"><div class="ico">—</div><p>No tasks yet.<br>Add your first task.</p></div>
   </div>
 
   <div class="add-form" id="add-form" style="display:none">
     <div class="add-row">
-      <input class="add-input" id="new-title" type="text" placeholder="Nova tarefa…" onkeydown="if(event.key==='Enter')addTask()">
+      <input class="add-input" id="new-title" type="text" placeholder="New task…" onkeydown="if(event.key==='Enter')addTask()">
       <button class="btn-add" onclick="addTask()">Adicionar</button>
     </div>
     <div class="add-opts">
       <select id="new-priority">
-        <option value="">Prioridade</option>
-        <option value="alta">Alta</option>
-        <option value="media">Média</option>
-        <option value="baixa">Baixa</option>
+        <option value="">Priority</option>
+        <option value="alta">High</option>
+        <option value="media">Medium</option>
+        <option value="baixa">Low</option>
       </select>
       <input type="date" id="new-date">
-      <select id="new-list" style="flex:1;min-width:110px;" onchange="onListChange()"><option value="">Sem lista</option></select>
-      <div id="dept-select-wrap"><select id="new-dept"><option value="">Departamento</option></select></div>
+      <select id="new-list" style="flex:1;min-width:110px;" onchange="onListChange()"><option value="">No list</option></select>
+      <div id="dept-select-wrap"><select id="new-dept"><option value="">Department</option></select></div>
     </div>
   </div>
 </div>
@@ -640,17 +640,17 @@
 <!-- ══ ADD/EDIT LIST MODAL ══ -->
 <div id="list-modal" class="overlay" style="display:none;">
   <div class="modal">
-    <h3 id="list-modal-title">Nova lista</h3>
+    <h3 id="list-modal-title">New list</h3>
     <div class="field">
-      <label>Nome</label>
-      <input id="list-name" type="text" placeholder="Ex: Trabalho, Pessoal…" onkeydown="if(event.key==='Enter')confirmAddList()">
+      <label>Name</label>
+      <input id="list-name" type="text" placeholder="e.g. Work, Personal…" onkeydown="if(event.key==='Enter')confirmAddList()">
     </div>
     <div class="field">
-      <label>Cor</label>
+      <label>Color</label>
       <div class="colors" id="colors"></div>
     </div>
     <div class="field">
-      <label>Departamentos</label>
+      <label>Departments</label>
       <div class="dept-input-row">
         <input id="dept-input" type="text" placeholder="Ex: CEO, Finance…" onkeydown="if(event.key==='Enter'){addDept();event.preventDefault();}">
         <button class="btn-dept-add" onclick="addDept()">+</button>
@@ -658,7 +658,7 @@
       <div id="dept-list"></div>
     </div>
     <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeAddList()">Cancelar</button>
+      <button class="btn-cancel" onclick="closeAddList()">Cancel</button>
       <button class="btn-add btn-ok" id="list-modal-ok" onclick="confirmAddList()">Criar</button>
     </div>
   </div>
@@ -669,32 +669,32 @@
   <div class="modal qa-box">
     <div class="tm-cols">
       <div class="tm-main">
-        <textarea id="qa-title" class="qa-title" rows="1" placeholder="Nova tarefa…" oninput="tmAutoGrow(this)"></textarea>
+        <textarea id="qa-title" class="qa-title" rows="1" placeholder="New task…" oninput="tmAutoGrow(this)"></textarea>
         <div class="field" style="margin-top:18px">
-          <label>Subtarefas — cada uma com data opcional</label>
+          <label>Subtasks — each one with optional date</label>
           <div id="qa-subs"></div>
           <div class="sub-add-row">
-            <input id="qa-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){qaAddSub();event.preventDefault();}">
-            <input type="date" id="qa-sub-date" class="sub-date" title="Data da subtarefa">
+            <input id="qa-sub-input" placeholder="Add step…" onkeydown="if(event.key==='Enter'){qaAddSub();event.preventDefault();}">
+            <input type="date" id="qa-sub-date" class="sub-date" title="Subtask date">
             <button onclick="qaAddSub()">+</button>
           </div>
         </div>
-        <div class="field" style="margin-bottom:0"><label>Notas</label>
+        <div class="field" style="margin-bottom:0"><label>Notes</label>
           <textarea id="qa-notes" class="note-field" rows="1" placeholder="Notas, contexto…" oninput="tmAutoGrow(this)"></textarea>
         </div>
       </div>
       <div class="tm-side">
         <div class="field"><label>Prioridade</label>
-          <select id="qa-priority"><option value="">—</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>
+          <select id="qa-priority"><option value="">—</option><option value="alta">High</option><option value="media">Medium</option><option value="baixa">Low</option></select>
         </div>
         <div class="field"><label>Data limite</label><input id="qa-date" type="date"></div>
-        <div class="field"><label>Lista</label><select id="qa-list" onchange="qaListChange()"></select></div>
-        <div class="field" id="qa-dept-wrap" style="display:none"><label>Departamento</label><select id="qa-dept"></select></div>
-        <div class="field"><label>Repetir</label><select id="qa-repeat"><option value="">Não repete</option><option value="daily">Diariamente</option><option value="weekdays">Dias úteis</option><option value="weekly">Semanalmente</option><option value="monthly">Mensalmente</option><option value="yearly">Anualmente</option></select></div>
-        <div class="field" id="qa-template-wrap" style="display:none"><label>Usar modelo</label><select id="qa-template" onchange="qaApplyTemplate()"></select></div>
+        <div class="field"><label>List</label><select id="qa-list" onchange="qaListChange()"></select></div>
+        <div class="field" id="qa-dept-wrap" style="display:none"><label>Department</label><select id="qa-dept"></select></div>
+        <div class="field"><label>Repeat</label><select id="qa-repeat"><option value="">Não repete</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+        <div class="field" id="qa-template-wrap" style="display:none"><label>Use template</label><select id="qa-template" onchange="qaApplyTemplate()"></select></div>
         <div class="tm-actions">
-          <button class="tm-act-btn" onclick="createQuickTask()">Criar tarefa</button>
-          <button class="tm-act-btn ghost" onclick="closeQuickAdd()">Cancelar</button>
+          <button class="tm-act-btn" onclick="createQuickTask()">Create task</button>
+          <button class="tm-act-btn ghost" onclick="closeQuickAdd()">Cancel</button>
         </div>
       </div>
     </div>
@@ -704,7 +704,7 @@
 <!-- ══ TEMPLATES MODAL ══ -->
 <div id="tpl-modal" class="overlay" style="display:none;">
   <div class="modal" style="max-width:460px;">
-    <h3>Modelos de checklist</h3>
+    <h3>Checklist templates</h3>
     <div id="tpl-existing"></div>
     <div class="field" style="margin-top:18px"><label id="tpl-form-label">Novo modelo — nome</label>
       <input id="tpl-name" type="text" placeholder="Ex: Fecho do mês">
@@ -712,15 +712,15 @@
     <div class="field"><label>Passos</label>
       <div id="tpl-steps"></div>
       <div class="sub-add-row">
-        <input id="tpl-step-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){tplAddStep();event.preventDefault();}">
+        <input id="tpl-step-input" placeholder="Add step…" onkeydown="if(event.key==='Enter'){tplAddStep();event.preventDefault();}">
         <input type="number" id="tpl-step-day" class="sub-date" min="1" max="31" placeholder="dia" style="width:62px">
         <button onclick="tplAddStep()">+</button>
       </div>
     </div>
     <label class="tpl-monthly-row"><input type="checkbox" id="tpl-monthly"> Recorrente mensal (gera todos os meses)</label>
     <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeTpl()">Fechar</button>
-      <button class="btn-add btn-ok" id="tpl-save-btn" onclick="saveTemplate()">Guardar modelo</button>
+      <button class="btn-cancel" onclick="closeTpl()">Close</button>
+      <button class="btn-add btn-ok" id="tpl-save-btn" onclick="saveTemplate()">Save template</button>
     </div>
   </div>
 </div>
@@ -733,75 +733,75 @@
       <div class="tm-main">
         <textarea id="tm-title" class="tm-title" rows="1" oninput="tmAutoGrow(this)" onchange="saveTaskField('title', this.value)"></textarea>
         <div class="field">
-          <label>Subtarefas <span id="tm-sub-progress" class="sub-prog"></span></label>
+          <label>Subtasks <span id="tm-sub-progress" class="sub-prog"></span></label>
           <div id="tm-subs"></div>
           <div class="sub-bar-wrap" id="tm-sub-bar-wrap" style="display:none"><div class="sub-bar" id="tm-sub-bar"></div></div>
           <div class="sub-add-row">
-            <input id="tm-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){addSubtask();event.preventDefault();}">
-            <input type="date" id="tm-sub-date" class="sub-date" title="Data da subtarefa">
-            <select id="tm-sub-repeat" class="sub-repeat" title="Repetir">
-              <option value="">— sem repetir —</option>
-              <option value="daily">Diariamente</option>
-              <option value="weekdays">Dias úteis</option>
-              <option value="weekly">Semanal</option>
-              <option value="monthly">Mensal</option>
-              <option value="yearly">Anual</option>
+            <input id="tm-sub-input" placeholder="Add step…" onkeydown="if(event.key==='Enter'){addSubtask();event.preventDefault();}">
+            <input type="date" id="tm-sub-date" class="sub-date" title="Subtask date">
+            <select id="tm-sub-repeat" class="sub-repeat" title="Repeat">
+              <option value="">— do not repeat —</option>
+              <option value="daily">Daily</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
             </select>
             <button onclick="addSubtask()">+</button>
           </div>
         </div>
-        <div class="field" style="margin-bottom:0"><label>Notas</label>
-          <textarea id="tm-notes" class="note-field" rows="1" placeholder="Notas, contexto, links…" oninput="tmAutoGrow(this)" onchange="saveTaskField('notes', this.value)"></textarea>
+        <div class="field" style="margin-bottom:0"><label>Notes</label>
+          <textarea id="tm-notes" class="note-field" rows="1" placeholder="Notes, context, links…" oninput="tmAutoGrow(this)" onchange="saveTaskField('notes', this.value)"></textarea>
         </div>
       </div>
       <div class="tm-side">
-        <div class="field"><label>Estado</label>
+        <div class="field"><label>Status</label>
           <select id="tm-status" onchange="saveTaskField('status', this.value)">
-            <option value="todo">Por fazer</option>
-            <option value="doing">Em curso</option>
-            <option value="blocked">Bloqueada</option>
-            <option value="waiting">À espera</option>
-            <option value="done">Concluída</option>
+            <option value="todo">To do</option>
+            <option value="doing">In progress</option>
+            <option value="blocked">Blocked</option>
+            <option value="waiting">Waiting</option>
+            <option value="done">Done</option>
           </select>
         </div>
-        <div class="field"><label>Importância</label>
+        <div class="field"><label>Priority</label>
           <select id="tm-priority" onchange="saveTaskField('priority', this.value)">
             <option value="">—</option>
-            <option value="alta">Alta</option>
-            <option value="media">Média</option>
-            <option value="baixa">Baixa</option>
+            <option value="alta">High</option>
+            <option value="media">Medium</option>
+            <option value="baixa">Low</option>
           </select>
         </div>
-        <div class="field"><label>Criada em</label>
+        <div class="field"><label>Created on</label>
           <input type="date" id="tm-start" readonly title="Definida automaticamente" style="background:#f0ece1;color:var(--taupe);cursor:not-allowed">
         </div>
-        <div class="field"><label>Data fim</label>
+        <div class="field"><label>Due date</label>
           <input type="date" id="tm-due" onchange="saveTaskField('dueDate', this.value)">
         </div>
-        <div class="field"><label>Lista</label>
+        <div class="field"><label>List</label>
           <select id="tm-list" onchange="onTaskListChange()"></select>
         </div>
-        <div class="field" id="tm-dept-wrap"><label>Departamento</label>
+        <div class="field" id="tm-dept-wrap"><label>Department</label>
           <select id="tm-dept" onchange="saveTaskField('department', this.value)"></select>
         </div>
-        <div class="field"><label>Repetir</label>
+        <div class="field"><label>Repeat</label>
           <select id="tm-repeat" onchange="saveTaskField('repeat', this.value)">
             <option value="">Não repete</option>
-            <option value="daily">Diariamente</option>
+            <option value="daily">Daily</option>
             <option value="weekdays">Dias úteis (seg–sex)</option>
-            <option value="weekly">Semanalmente</option>
-            <option value="monthly">Mensalmente</option>
-            <option value="yearly">Anualmente</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
           </select>
         </div>
         <div class="tm-actions">
-          <button class="tm-act-btn" onclick="saveTaskModal()">✓ Guardar alterações</button>
-          <button class="tm-act-btn ghost" onclick="taskToCalendar()">⊞ Bloquear no calendário</button>
-          <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up por email</button>
-          <button class="tm-act-btn ghost" onclick="exportTaskWord()">⤓ Exportar Word</button>
-          <button class="tm-act-btn ghost" onclick="showMakeSub()">↳ Tornar subtarefa</button>
+          <button class="tm-act-btn" onclick="saveTaskModal()">✓ Save changes</button>
+          <button class="tm-act-btn ghost" onclick="taskToCalendar()">⊞ Block on calendar</button>
+          <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up email</button>
+          <button class="tm-act-btn ghost" onclick="exportTaskWord()">⤓ Export to Word</button>
+          <button class="tm-act-btn ghost" onclick="showMakeSub()">↳ Make subtask</button>
           <select id="tm-parent" style="display:none;width:100%;margin-top:4px" onchange="makeSubtaskOf(this.value)"></select>
-          <button class="tm-act-btn danger" onclick="deleteTaskFromModal()">Apagar</button>
+          <button class="tm-act-btn danger" onclick="deleteTaskFromModal()">Delete</button>
         </div>
       </div>
     </div>
@@ -812,12 +812,12 @@
 <div id="briefing-modal" class="overlay" style="display:none;">
   <div class="modal task-modal" style="max-width:780px">
     <button class="tm-close" onclick="closeBriefing()">✕</button>
-    <h3 style="margin-bottom:6px">Briefing semanal</h3>
+    <h3 style="margin-bottom:6px">Weekly briefing</h3>
     <div id="briefing-date" style="font-size:12px;color:var(--taupe);font-style:italic;margin-bottom:18px"></div>
     <div id="briefing-body" style="max-height:60vh;overflow-y:auto;padding-right:6px"></div>
     <div class="tm-actions" style="margin-top:18px">
-      <button class="tm-act-btn" onclick="sendBriefingEmail()">✉ Enviar para o meu Gmail</button>
-      <button class="tm-act-btn ghost" onclick="closeBriefing()">Fechar</button>
+      <button class="tm-act-btn" onclick="sendBriefingEmail()">✉ Send to my Gmail</button>
+      <button class="tm-act-btn ghost" onclick="closeBriefing()">Close</button>
     </div>
   </div>
 </div>
@@ -845,13 +845,13 @@ let doneOpen = false;
 let subDoneOpen = false;
 let currentTaskId = null;
 const STATUS = {
-  todo:    {label:'Por fazer'},
-  doing:   {label:'Em curso',  cls:'st-doing'},
-  blocked: {label:'Bloqueada', cls:'st-blocked'},
-  waiting: {label:'À espera',  cls:'st-waiting'},
-  done:    {label:'Concluída'}
+  todo:    {label:'To do'},
+  doing:   {label:'In progress',  cls:'st-doing'},
+  blocked: {label:'Blocked', cls:'st-blocked'},
+  waiting: {label:'Waiting',  cls:'st-waiting'},
+  done:    {label:'Done'}
 };
-const REPEAT = { daily:'Diariamente', weekdays:'Dias úteis', weekly:'Semanalmente', monthly:'Mensalmente', yearly:'Anualmente' };
+const REPEAT = { daily:'Daily', weekdays:'Weekdays', weekly:'Weekly', monthly:'Monthly', yearly:'Yearly' };
 const PALETTE = ['#233b34','#4a6c5e','#8b6914','#7a3030','#2c4a6e','#5a3d6b','#6b5a3e','#aca497'];
 
 // ── Firebase ───────────────────────────────────────────────────────────────
@@ -984,7 +984,7 @@ function subscribe() {
     if (e.code === 'permission-denied') {
       const se = document.getElementById('setup-error');
       se.style.display = 'block';
-      se.textContent = 'Esta conta Google não tem acesso à app.';
+      se.textContent = 'This Google account does not have access to the app.';
       document.getElementById('setup').style.display = 'flex';
       signOut(auth);
     }
@@ -995,21 +995,21 @@ function subscribe() {
     else if (['all','today','done'].includes(view) || lists.find(l=>l.id===view)) renderTasks();
     if (currentTaskId && document.getElementById('task-modal').style.display === 'flex' && !curTask()) closeTaskModal();
     updateBadges();
-    document.getElementById('sync-status').textContent = '● Sincronizado';
+    document.getElementById('sync-status').textContent = '● Synced';
   });
   onSnapshot(query(collection(db,'templates'), orderBy('createdAt')), snap => {
     templates = snap.docs.map(d => ({id:d.id, ...d.data()}));
     renderTplNav();
     if (document.getElementById('tpl-modal').style.display === 'flex') renderTplExisting();
     if (document.getElementById('qa-modal').style.display === 'flex') qaFillTemplates();
-  }, (e) => { showToast('Modelos — erro: ' + (e.code || 'leitura')); });
+  }, (e) => { showToast('Templates — error: ' + (e.code || 'leitura')); });
 }
 
 // ── List CRUD ──────────────────────────────────────────────────────────────
 window.openAddList = () => {
   editingListId = null; pendingDepts = [];
   document.getElementById('list-name').value = '';
-  document.getElementById('list-modal-title').textContent = 'Nova lista';
+  document.getElementById('list-modal-title').textContent = 'New list';
   document.getElementById('list-modal-ok').textContent = 'Criar';
   pickedColor = '#233b34'; buildColors(); renderDeptTags();
   document.getElementById('list-modal').style.display = 'flex';
@@ -1019,8 +1019,8 @@ window.openEditList = (id) => {
   const l = lists.find(x => x.id === id); if (!l) return;
   editingListId = id; pendingDepts = [...(l.departments || [])];
   document.getElementById('list-name').value = l.name;
-  document.getElementById('list-modal-title').textContent = 'Editar lista';
-  document.getElementById('list-modal-ok').textContent = 'Guardar';
+  document.getElementById('list-modal-title').textContent = 'Edit list';
+  document.getElementById('list-modal-ok').textContent = 'Save';
   pickedColor = l.color; buildColors(); renderDeptTags();
   document.getElementById('list-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('list-name').focus(), 80);
@@ -1050,7 +1050,7 @@ window.confirmAddList = async () => {
 };
 window.deleteCurrentList = async () => {
   const list = lists.find(l => l.id === view);
-  if (!list || !confirm(`Apagar "${list.name}" e todas as suas tarefas?`)) return;
+  if (!list || !confirm(`Delete "${list.name}" and all its tasks?`)) return;
   const batch = writeBatch(db);
   const snap = await getDocs(query(collection(db,'tasks'), where('listId','==',view)));
   snap.forEach(d => batch.delete(d.ref));
@@ -1064,7 +1064,7 @@ window.addTask = async () => {
   const title = document.getElementById('new-title').value.trim();
   if (!title) return;
   let dueDate = document.getElementById('new-date').value || null;
-  if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) { dueDate = a; showToast('Fim de semana → movido para sexta-feira'); } }
+  if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) { dueDate = a; showToast('Weekend → moved to Friday'); } }
   await addDoc(collection(db,'tasks'), {
     title,
     priority: document.getElementById('new-priority').value || null,
@@ -1103,7 +1103,7 @@ window.toggleTask = async (id, cur) => {
         })),
         completed: false, createdAt: serverTimestamp()
       });
-      showToast('Próxima ocorrência: ' + fmtDate(nd));
+      showToast('Next occurrence: ' + fmtDate(nd));
     }
   }
 };
@@ -1137,7 +1137,7 @@ window.saveTaskField = (field, value) => {
     if (adj !== v) {
       v = adj;
       document.getElementById(field === 'dueDate' ? 'tm-due' : 'tm-start').value = v;
-      showToast('Fim de semana → movido para sexta-feira');
+      showToast('Weekend → moved to Friday');
     }
   }
   const upd = {[field]: v};
@@ -1146,7 +1146,7 @@ window.saveTaskField = (field, value) => {
 };
 function fillTaskModalLists(listId, dept) {
   const ls = document.getElementById('tm-list');
-  ls.innerHTML = '<option value="">— Sem lista —</option>' + lists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+  ls.innerHTML = '<option value="">— No list —</option>' + lists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
   ls.value = listId || '';
   fillTaskModalDept(dept);
 }
@@ -1156,7 +1156,7 @@ function fillTaskModalDept(dept) {
   const ds = document.getElementById('tm-dept');
   document.getElementById('tm-dept-wrap').style.display = depts.length ? '' : 'none';
   ds.innerHTML = depts.length
-    ? '<option value="">— Sem departamento —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('')
+    ? '<option value="">— No department —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('')
     : '';
   ds.value = dept || '';
 }
@@ -1166,7 +1166,7 @@ window.onTaskListChange = function() {
   fillTaskModalDept('');
 };
 function subRepeatOptions(cur) {
-  const opts = [['','— sem repetir —'],['daily','Diariamente'],['weekdays','Dias úteis'],['weekly','Semanal'],['monthly','Mensal'],['yearly','Anual']];
+  const opts = [['','— do not repeat —'],['daily','Daily'],['weekdays','Weekdays'],['weekly','Weekly'],['monthly','Monthly'],['yearly','Yearly']];
   return opts.map(([v,l]) => `<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
 }
 function subBlockHtml(s, i) {
@@ -1175,11 +1175,11 @@ function subBlockHtml(s, i) {
         <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
         <textarea class="sub-text-edit" rows="1" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.text)}</textarea>
         <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
-        <select class="sub-repeat" onchange="saveSubs()" title="Repetir esta subtarefa">${subRepeatOptions(s.repeat||'')}</select>
+        <select class="sub-repeat" onchange="saveSubs()" title="Repeat this subtask">${subRepeatOptions(s.repeat||'')}</select>
         <button class="sub-del" onclick="removeSub(${i})">✕</button>
       </div>
-      <textarea class="sub-notes note-field" rows="1" placeholder="Notas / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
-      ${(s.repeat && !s.done) ? `<div class="sub-rep-hint">↻ ${REPEAT[s.repeat]||s.repeat} — ao concluir cria nova ocorrência</div>` : ''}
+      <textarea class="sub-notes note-field" rows="1" placeholder="Notes / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
+      ${(s.repeat && !s.done) ? `<div class="sub-rep-hint">↻ ${REPEAT[s.repeat]||s.repeat} — creates next occurrence when completed</div>` : ''}
     </div>`;
 }
 function renderSubtasks(subs) {
@@ -1187,7 +1187,7 @@ function renderSubtasks(subs) {
   const done   = subs.map((s,i) => ({s,i})).filter(x =>  x.s.done);
   let html = active.map(x => subBlockHtml(x.s, x.i)).join('');
   if (done.length) {
-    html += `<div class="sub-done-toggle" onclick="toggleSubDone()"><span>${subDoneOpen?'▾':'▸'} Concluídas — ${done.length}</span><div class="line"></div></div>`;
+    html += `<div class="sub-done-toggle" onclick="toggleSubDone()"><span>${subDoneOpen?'▾':'▸'} Completed — ${done.length}</span><div class="line"></div></div>`;
     html += `<div class="sub-done-wrap" style="display:${subDoneOpen?'block':'none'}">${done.map(x => subBlockHtml(x.s, x.i)).join('')}</div>`;
   }
   document.getElementById('tm-subs').innerHTML = html;
@@ -1232,7 +1232,7 @@ window.setSubDue = (i, value) => {
       const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
       const el = blocks.find(b => Number(b.dataset.idx) === i);
       if (el) el.querySelector('.sub-date').value = adj;
-      showToast('Fim de semana → sexta');
+      showToast('Weekend → Friday');
     }
   }
   saveSubs();
@@ -1271,7 +1271,7 @@ window.toggleSub = (i) => {
       const firstDoneIdx = subs.findIndex(s => s.done);
       if (firstDoneIdx === -1) subs.push(clone);
       else subs.splice(firstDoneIdx, 0, clone);
-      showToast('↻ Próxima: ' + (nextDue ? fmtDate(nextDue) : 'sem data'));
+      showToast('↻ Next: ' + (nextDue ? fmtDate(nextDue) : 'sem data'));
     }
   }
   renderSubtasks(subs);
@@ -1306,7 +1306,7 @@ window.showMakeSub = () => {
   const sel = document.getElementById('tm-parent');
   if (sel.style.display !== 'block') {
     const others = tasks.filter(x => x.id !== currentTaskId && !x.completed);
-    sel.innerHTML = '<option value="">— escolher tarefa —</option>' + others.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('');
+    sel.innerHTML = '<option value="">— escolher task —</option>' + others.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('');
     sel.style.display = 'block';
   } else sel.style.display = 'none';
 };
@@ -1318,49 +1318,49 @@ window.makeSubtaskOf = async (parentId) => {
   await updateDoc(doc(db,'tasks',parentId), {subtasks:[...(p.subtasks||[]), newSub]});
   await deleteTask(t.id);
   closeTaskModal();
-  showToast('Tornada subtarefa de: ' + p.title);
+  showToast('Now a subtask of: ' + p.title);
 };
 window.taskToCalendar = () => {
   const t = curTask(); if (!t) return;
-  if (!accessToken) { showToast('Liga ao Google primeiro (no sidebar)'); return; }
+  if (!accessToken) { showToast('Connect to Google first (in sidebar)'); return; }
   closeTaskModal();
   openSchedule(t.id, t.title, t.dueDate || t.startDate);
 };
 window.taskFollowUp = () => {
   const t = curTask(); if (!t) return;
-  let body = (t.notes ? t.notes + '\n\n' : '') + '— Referente à tarefa: ' + t.title;
-  if (t.dueDate) body += '\n  Prazo: ' + fmtDate(t.dueDate);
+  let body = (t.notes ? t.notes + '\n\n' : '') + '— Regarding task: ' + t.title;
+  if (t.dueDate) body += '\n  Due: ' + fmtDate(t.dueDate);
   window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent('Follow-up: ' + t.title)}&body=${encodeURIComponent(body)}`, '_blank');
 };
 window.exportTaskWord = () => {
   const t = curTask(); if (!t) return;
-  const pMap = {alta:'Alta', media:'Média', baixa:'Baixa'};
+  const pMap = {alta:'High', media:'Medium', baixa:'Low'};
   const l = lists.find(x => x.id === t.listId);
   const meta = [];
-  if (l) meta.push(['Unidade / Lista', l.name + (t.department ? ' · ' + t.department : '')]);
-  if (t.status) meta.push(['Estado', STATUS[t.status]?.label || t.status]);
-  if (t.priority) meta.push(['Importância', pMap[t.priority]]);
-  if (t.startDate) meta.push(['Início', fmtDate(t.startDate)]);
-  if (t.dueDate) meta.push(['Prazo', fmtDate(t.dueDate)]);
-  if (t.repeat) meta.push(['Repetição', REPEAT[t.repeat] || t.repeat]);
+  if (l) meta.push(['Unit / List', l.name + (t.department ? ' · ' + t.department : '')]);
+  if (t.status) meta.push(['Status', STATUS[t.status]?.label || t.status]);
+  if (t.priority) meta.push(['Priority', pMap[t.priority]]);
+  if (t.startDate) meta.push(['Created', fmtDate(t.startDate)]);
+  if (t.dueDate) meta.push(['Due', fmtDate(t.dueDate)]);
+  if (t.repeat) meta.push(['Recurrence', REPEAT[t.repeat] || t.repeat]);
   const metaHtml = meta.map(m => `<p style="margin:2px 0"><b>${m[0]}:</b> ${esc(m[1])}</p>`).join('');
   const subs = (t.subtasks||[]).map(s => `<li>${s.done?'☑':'☐'} ${esc(s.text)}${s.due?` <i>(${fmtDate(s.due)})</i>`:''}${s.notes?`<br><span style="color:#666;font-size:12px">↳ ${esc(s.notes).replace(/\n/g,'<br>↳ ')}</span>`:''}</li>`).join('');
-  const subsHtml = subs ? `<h3 style="color:#233b34">Subtarefas</h3><ul>${subs}</ul>` : '';
-  const notesHtml = t.notes ? `<h3 style="color:#233b34">Notas</h3><p>${esc(t.notes).replace(/\n/g,'<br>')}</p>` : '';
+  const subsHtml = subs ? `<h3 style="color:#233b34">Subtasks</h3><ul>${subs}</ul>` : '';
+  const notesHtml = t.notes ? `<h3 style="color:#233b34">Notes</h3><p>${esc(t.notes).replace(/\n/g,'<br>')}</p>` : '';
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Georgia,serif;color:#262626;line-height:1.5">
     <h1 style="color:#233b34">${esc(t.title)}</h1>${metaHtml}${notesHtml}${subsHtml}
-    <hr><p style="font-size:11px;color:#999">BOA Hotels · Gestor de Tarefas</p></body></html>`;
+    <hr><p style="font-size:11px;color:#999">BOA Hotels · Task Manager</p></body></html>`;
   const blob = new Blob(['﻿', html], {type:'application/msword'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `Tarefa - ${(t.title||'tarefa').replace(/[\\/:*?"<>|]/g,'').slice(0,50)}.doc`;
+  a.href = url; a.download = `Task - ${(t.title||'task').replace(/[\\/:*?"<>|]/g,'').slice(0,50)}.doc`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast('Exportado para Word');
+  showToast('Exported to Word');
 };
 
-// ── Briefing semanal (Newsletter de 2ª feira) ─────────────────────────────
-const DOW = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+// ── Weekly briefing (Newsletter de 2ª feira) ─────────────────────────────
+const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function isoWeekKey(d) {
   const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   dt.setDate(dt.getDate() + 4 - (dt.getDay()||7));
@@ -1407,7 +1407,7 @@ function buildBriefingHtml() {
   const sec = (title, rows, alertCount) => {
     const c = rows.length;
     const cls = (alertCount && c > 0) ? 'alert' : '';
-    const body = c ? rows.join('') : `<div class="bf-empty">— sem tarefas —</div>`;
+    const body = c ? rows.join('') : `<div class="bf-empty">— no tasks —</div>`;
     return `<div class="bf-section"><h5><span>${title}</span><span class="count ${cls}">${c}</span><span class="line"></span></h5>${body}</div>`;
   };
   const overdueRows = d.overdue.map(t => briefingRowHtml(t));
@@ -1418,15 +1418,15 @@ function buildBriefingHtml() {
     const dayName = DOW[new Date(dt+'T00:00:00').getDay()];
     return `<div class="bf-day">${dayName} — ${fmtDate(dt)}</div>` + list.map(t => briefingRowHtml(t, {subtitle:true})).join('');
   }).filter(Boolean).join('');
-  const weekHtml = weekBlocks || `<div class="bf-empty">— sem prazos esta semana —</div>`;
+  const weekHtml = weekBlocks || `<div class="bf-empty">— no deadlines this week —</div>`;
   const totalWeek = Object.values(d.byDay).reduce((a,b)=>a+b.length,0);
   const doneCount = d.doneLastWeek.length;
   return `
-    ${sec('Vencidas', overdueRows, true)}
-    <div class="bf-section"><h5><span>Esta semana</span><span class="count">${totalWeek}</span><span class="line"></span></h5>${weekHtml}</div>
-    ${sec('Alta prioridade', highRows)}
-    <div class="bf-section"><h5><span>Semana passada</span><span class="count">${doneCount}</span><span class="line"></span></h5>
-      <div class="bf-empty">${doneCount} ${doneCount===1?'tarefa concluída':'tarefas concluídas'}. Bom trabalho. ✦</div>
+    ${sec('Overdue', overdueRows, true)}
+    <div class="bf-section"><h5><span>This week</span><span class="count">${totalWeek}</span><span class="line"></span></h5>${weekHtml}</div>
+    ${sec('High priority', highRows)}
+    <div class="bf-section"><h5><span>Last week</span><span class="count">${doneCount}</span><span class="line"></span></h5>
+      <div class="bf-empty">${doneCount} ${doneCount===1?'task completed':'tasks completed'}. Good work. ✦</div>
     </div>`;
 }
 function buildBriefingEmailHtml() {
@@ -1437,7 +1437,7 @@ function buildBriefingEmailHtml() {
     const dueLbl = t._sub ? `↳ ${esc(t._sub.text)} · ${fmtDate(t._sub.due)}` : (t.dueDate ? fmtDate(t.dueDate) : '');
     return `<tr><td style="padding:6px 0;border-bottom:1px solid #e5e2d8">${esc(t.title)}${t._sub?` — <span style="color:${taupeC}">${esc(t._sub.text)}</span>`:''}${tag?` <span style="font-size:10px;color:${greenC};background:#eee9dd;padding:1px 6px">${esc(tag)}</span>`:''}</td><td style="padding:6px 0;text-align:right;font-style:italic;color:${taupeC};border-bottom:1px solid #e5e2d8;white-space:nowrap">${dueLbl}</td></tr>`;
   };
-  const sec = (title, rows) => `<h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">${title} <span style="float:right;font-weight:400">${rows.length}</span></h3>${rows.length?`<table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`:`<p style="color:${taupeC};font-style:italic">— sem tarefas —</p>`}`;
+  const sec = (title, rows) => `<h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">${title} <span style="float:right;font-weight:400">${rows.length}</span></h3>${rows.length?`<table style="width:100%;border-collapse:collapse;font-size:14px">${rows.join('')}</table>`:`<p style="color:${taupeC};font-style:italic">— no tasks —</p>`}`;
   const weekBlocks = d.weekDates.map(dt => {
     const list = d.byDay[dt] || [];
     if (!list.length) return '';
@@ -1445,47 +1445,47 @@ function buildBriefingEmailHtml() {
   }).join('');
   const totalWeek = Object.values(d.byDay).reduce((a,b)=>a+b.length,0);
   return `<!DOCTYPE html><html><body style="font-family:Georgia,serif;color:#262626;line-height:1.55;max-width:680px;margin:0 auto;padding:24px">
-    <h1 style="color:${greenC};font-size:28px;font-weight:500;letter-spacing:.06em;margin:0 0 4px">Briefing semanal</h1>
-    <p style="color:${taupeC};font-style:italic;margin:0 0 24px">${fmtDate(d.today)} · ${d.overdue.length} vencidas · ${totalWeek} esta semana</p>
-    ${sec('Vencidas', d.overdue.map(row))}
-    <h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">Esta semana <span style="float:right;font-weight:400">${totalWeek}</span></h3>
-    ${weekBlocks || `<p style="color:${taupeC};font-style:italic">— sem prazos esta semana —</p>`}
-    ${sec('Alta prioridade', d.highPri.map(row))}
-    <h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">Semana passada <span style="float:right;font-weight:400">${d.doneLastWeek.length}</span></h3>
-    <p>${d.doneLastWeek.length} ${d.doneLastWeek.length===1?'tarefa concluída':'tarefas concluídas'} na semana passada. Bom trabalho.</p>
+    <h1 style="color:${greenC};font-size:28px;font-weight:500;letter-spacing:.06em;margin:0 0 4px">Weekly briefing</h1>
+    <p style="color:${taupeC};font-style:italic;margin:0 0 24px">${fmtDate(d.today)} · ${d.overdue.length} overdue · ${totalWeek} esta semana</p>
+    ${sec('Overdue', d.overdue.map(row))}
+    <h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">This week <span style="float:right;font-weight:400">${totalWeek}</span></h3>
+    ${weekBlocks || `<p style="color:${taupeC};font-style:italic">— no deadlines this week —</p>`}
+    ${sec('High priority', d.highPri.map(row))}
+    <h3 style="color:${greenC};font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin:24px 0 6px;border-bottom:2px solid ${greenC};padding-bottom:4px">Last week <span style="float:right;font-weight:400">${d.doneLastWeek.length}</span></h3>
+    <p>${d.doneLastWeek.length} ${d.doneLastWeek.length===1?'task completed':'tasks completed'} na semana passada. Good work.</p>
     <hr style="border:none;border-top:1px solid #e5e2d8;margin:32px 0 12px">
-    <p style="font-size:11px;color:#999">BOA Hotels · Gestor de Tarefas — gerado automaticamente</p>
+    <p style="font-size:11px;color:#999">BOA Hotels · Task Manager — auto-generated</p>
   </body></html>`;
 }
 window.openBriefing = () => {
   document.getElementById('briefing-body').innerHTML = buildBriefingHtml();
-  document.getElementById('briefing-date').textContent = 'Semana de ' + fmtDate(todayStr());
+  document.getElementById('briefing-date').textContent = 'Week of ' + fmtDate(todayStr());
   document.getElementById('briefing-modal').style.display = 'flex';
   try { localStorage.setItem('myt-briefing-' + isoWeekKey(new Date()), '1'); } catch {}
 };
 window.closeBriefing = () => document.getElementById('briefing-modal').style.display = 'none';
 window.sendBriefingEmail = () => {
   const html = buildBriefingEmailHtml();
-  const subject = 'Briefing semanal — ' + fmtDate(todayStr());
+  const subject = 'Weekly briefing — ' + fmtDate(todayStr());
   // Gmail compose URL does not support HTML body; fall back to a plain-text condensed version
   const d = buildBriefingData();
   const lines = [];
-  lines.push('BRIEFING SEMANAL — ' + fmtDate(d.today));
+  lines.push('WEEKLY BRIEFING — ' + fmtDate(d.today));
   lines.push('');
-  lines.push('VENCIDAS (' + d.overdue.length + ')');
+  lines.push('OVERDUE (' + d.overdue.length + ')');
   d.overdue.forEach(t => lines.push('  • ' + t.title + (t.dueDate ? ' [' + fmtDate(t.dueDate) + ']' : '')));
   lines.push('');
-  lines.push('ESTA SEMANA');
+  lines.push('THIS WEEK');
   d.weekDates.forEach(dt => {
     const list = d.byDay[dt] || []; if (!list.length) return;
     lines.push('  ' + DOW[new Date(dt+'T00:00:00').getDay()] + ' — ' + fmtDate(dt));
     list.forEach(t => lines.push('    • ' + t.title + (t._sub ? '  ↳ ' + t._sub.text : '')));
   });
   lines.push('');
-  lines.push('ALTA PRIORIDADE (' + d.highPri.length + ')');
+  lines.push('HIGH PRIORITY (' + d.highPri.length + ')');
   d.highPri.forEach(t => lines.push('  • ' + t.title));
   lines.push('');
-  lines.push('SEMANA PASSADA — ' + d.doneLastWeek.length + ' concluídas');
+  lines.push('LAST WEEK — ' + d.doneLastWeek.length + ' completed');
   const body = lines.join('\n');
   window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
 };
@@ -1542,7 +1542,7 @@ function onGoogleConnected() {
   if (['all','today'].includes(view) || lists.find(l=>l.id===view)) renderTasks();
 }
 function googleReconnectHtml(what) {
-  return `<div class="empty-state"><div class="ico">◷</div><p>A ligação à Google expirou (renova a cada hora).<br>Reconecta para veres ${what}.</p><button class="refresh-btn" style="margin-top:16px" onclick="reconnectGoogle()">Reconectar Google</button></div>`;
+  return `<div class="empty-state"><div class="ico">◷</div><p>A ligação à Google expirou (renova a cada hora).<br>Reconecta para veres ${what}.</p><button class="refresh-btn" style="margin-top:16px" onclick="reconnectGoogle()">Reconnect Google</button></div>`;
 }
 window.reconnectGoogle = async () => { await doLogin(); };
 
@@ -1585,7 +1585,7 @@ async function fetchEmails(q) {
     const labels = msg.labelIds || [];
     return {
       id: th.id,
-      subject: get('Subject') || '(sem assunto)',
+      subject: get('Subject') || '(no subject)',
       from:    get('From').replace(/<[^>]+>/,'').trim(),
       date:    get('Date'),
       snippet: msg.snippet || '',
@@ -1616,7 +1616,7 @@ let schedDurationMin = 30; // duração predefinida da reunião (minutos)
 function timeToMin(s)  { if (!s) return 0; const [h,m] = s.split(':').map(Number); return h*60 + (m||0); }
 function minToTime(n)  { n = ((n % 1440) + 1440) % 1440; return String(Math.floor(n/60)).padStart(2,'0') + ':' + String(n%60).padStart(2,'0'); }
 function defaultStartTime() {
-  // Próxima meia-hora a partir de agora (mínimo 09:00)
+  // Next half-hour from now (min 09:00)
   const now = new Date();
   let m = now.getHours()*60 + now.getMinutes();
   m = Math.ceil(m / 30) * 30;
@@ -1651,7 +1651,7 @@ window.onSchEndChange = function() {
     // Se o fim ficou antes do início, repõe duração padrão e ajusta o fim
     diff = schedDurationMin;
     document.getElementById('sch-end').value = minToTime(timeToMin(s) + diff);
-    showToast('Fim antes do início → reposto para ' + diff + ' min');
+    showToast('End before start → reset to ' + diff + ' min');
     return;
   }
   schedDurationMin = diff; // memoriza a nova duração escolhida
@@ -1672,9 +1672,9 @@ window.confirmSchedule = async function() {
     });
     if (!r.ok) throw new Error(await r.text());
     closeSchedule();
-    showToast('Evento criado no calendário');
+    showToast('Event created in calendar');
   } catch {
-    alert('Erro ao criar evento. O token pode ter expirado — volta a ligar ao Google.');
+    alert('Error creating event. Token may have expired — connect to Google again.');
   }
 };
 
@@ -1701,32 +1701,32 @@ window.selectView = async function(v) {
   resetFilters();
 
   if (v === 'dashboard') {
-    document.getElementById('main-title').textContent = 'Painel';
-    actions.innerHTML = `<button class="refresh-btn" onclick="openBriefing()">⌂ Briefing semanal</button><button class="refresh-btn" onclick="renderDashboard()">Atualizar</button>`;
+    document.getElementById('main-title').textContent = 'Dashboard';
+    actions.innerHTML = `<button class="refresh-btn" onclick="openBriefing()">⌂ Weekly briefing</button><button class="refresh-btn" onclick="renderDashboard()">Refresh</button>`;
     renderDashboard();
   } else if (v === 'all') {
-    document.getElementById('main-title').textContent = 'Todas';
+    document.getElementById('main-title').textContent = 'All';
     renderTasks();
   } else if (v === 'today') {
-    document.getElementById('main-title').textContent = 'Hoje';
+    document.getElementById('main-title').textContent = 'Today';
     renderTasks();
   } else if (v === 'done') {
-    document.getElementById('main-title').textContent = 'Concluídas';
+    document.getElementById('main-title').textContent = 'Completed';
     renderTasks();
   } else if (v === 'calendar') {
-    document.getElementById('main-title').textContent = 'Calendário';
-    actions.innerHTML = `<button class="refresh-btn" onclick="reloadCalendar()">Atualizar</button>`;
+    document.getElementById('main-title').textContent = 'Calendar';
+    actions.innerHTML = `<button class="refresh-btn" onclick="reloadCalendar()">Refresh</button>`;
     await reloadCalendar();
   } else if (v === 'emails') {
     document.getElementById('main-title').textContent = 'Emails';
-    actions.innerHTML = `<button class="refresh-btn" onclick="reloadEmails()">Atualizar</button>`;
+    actions.innerHTML = `<button class="refresh-btn" onclick="reloadEmails()">Refresh</button>`;
     await reloadEmails();
   } else {
     const l = lists.find(x => x.id === v);
     if (l) {
       document.getElementById('main-title').textContent = l.name.toUpperCase();
       dot.style.cssText = `display:block;background:${l.color}`;
-      actions.innerHTML = `<button class="btn-icon" title="Editar lista" onclick="openEditList('${v}')">⚙</button><button class="btn-icon" title="Apagar lista" onclick="deleteCurrentList()">✕</button>`;
+      actions.innerHTML = `<button class="btn-icon" title="Edit list" onclick="openEditList('${v}')">⚙</button><button class="btn-icon" title="Delete list" onclick="deleteCurrentList()">✕</button>`;
     }
     renderTasks();
   }
@@ -1735,31 +1735,31 @@ window.selectView = async function(v) {
 
 window.reloadCalendar = async function() {
   const wrap = document.getElementById('tasks-wrap');
-  if (!accessToken) { wrap.innerHTML = googleReconnectHtml('a agenda'); return; }
-  wrap.innerHTML = `<div class="loading-state">A carregar eventos…</div>`;
+  if (!accessToken) { wrap.innerHTML = googleReconnectHtml('the calendar'); return; }
+  wrap.innerHTML = `<div class="loading-state">Loading events…</div>`;
   try {
     const events = await fetchCalendarEvents();
     renderCalendarView(events);
   } catch {
     googleExpired();
-    wrap.innerHTML = googleReconnectHtml('a agenda');
+    wrap.innerHTML = googleReconnectHtml('the calendar');
   }
 };
 
 const EMAIL_PRESETS = {
-  unread:  { label: 'Por ler',     q: 'is:unread in:inbox' },
+  unread:  { label: 'Unread',     q: 'is:unread in:inbox' },
   today:   { label: 'Hoje',        q: 'in:inbox newer_than:1d' },
-  week:    { label: 'Esta semana', q: 'in:inbox newer_than:7d' },
-  starred: { label: 'Importantes', q: 'is:starred in:inbox' },
-  all:     { label: 'Todos',       q: 'in:inbox' }
+  week:    { label: 'This week', q: 'in:inbox newer_than:7d' },
+  starred: { label: 'Important', q: 'is:starred in:inbox' },
+  all:     { label: 'All',       q: 'in:inbox' }
 };
 let activeEmailPreset = 'unread';
 window.reloadEmails = async function(preset) {
   const wrap = document.getElementById('tasks-wrap');
-  if (!accessToken) { wrap.innerHTML = googleReconnectHtml('os emails'); return; }
+  if (!accessToken) { wrap.innerHTML = googleReconnectHtml('emails'); return; }
   if (preset && EMAIL_PRESETS[preset]) { activeEmailPreset = preset; emailQuery = EMAIL_PRESETS[preset].q; document.getElementById('email-search') && (document.getElementById('email-search').value = ''); }
   const bar = renderEmailBar();
-  wrap.innerHTML = bar + `<div class="loading-state">A carregar emails…</div>`;
+  wrap.innerHTML = bar + `<div class="loading-state">Loading emails…</div>`;
   try {
     const emails = await fetchEmails();
     const unreadCnt = emails.filter(e => e.unread).length;
@@ -1767,7 +1767,7 @@ window.reloadEmails = async function(preset) {
     renderEmailView(emails);
   } catch {
     googleExpired();
-    wrap.innerHTML = googleReconnectHtml('os emails');
+    wrap.innerHTML = googleReconnectHtml('emails');
   }
 };
 function renderEmailBar() {
@@ -1776,8 +1776,8 @@ function renderEmailBar() {
   ).join('');
   return `<div class="email-bar">
     ${chips}
-    <input id="email-search" class="f-search" placeholder="Pesquisar… (ex: from:fornecedor, has:attachment)" onkeydown="if(event.key==='Enter')searchEmails(this.value)">
-    <button class="f-chip" onclick="searchEmails(document.getElementById('email-search').value)">Procurar</button>
+    <input id="email-search" class="f-search" placeholder="Search… (ex: from:fornecedor, has:attachment)" onkeydown="if(event.key==='Enter')searchEmails(this.value)">
+    <button class="f-chip" onclick="searchEmails(document.getElementById('email-search').value)">Search</button>
   </div>`;
 }
 window.searchEmails = async function(q) {
@@ -1786,14 +1786,14 @@ window.searchEmails = async function(q) {
   activeEmailPreset = '__search';
   emailQuery = q + ' in:anywhere';
   const wrap = document.getElementById('tasks-wrap');
-  wrap.innerHTML = renderEmailBar() + `<div class="loading-state">A pesquisar…</div>`;
+  wrap.innerHTML = renderEmailBar() + `<div class="loading-state">Searching…</div>`;
   document.getElementById('email-search').value = q;
   try {
     const emails = await fetchEmails();
     renderEmailView(emails);
   } catch {
     googleExpired();
-    wrap.innerHTML = googleReconnectHtml('os emails');
+    wrap.innerHTML = googleReconnectHtml('emails');
   }
 };
 
@@ -1839,7 +1839,7 @@ window.openQuickAdd = () => {
 window.closeQuickAdd = () => document.getElementById('qa-modal').style.display = 'none';
 function qaFillLists() {
   const ls = document.getElementById('qa-list');
-  ls.innerHTML = '<option value="">— Sem lista —</option>' + lists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+  ls.innerHTML = '<option value="">— No list —</option>' + lists.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
   ls.value = '';
   qaFillDept();
 }
@@ -1848,7 +1848,7 @@ function qaFillDept() {
   const depts = list?.departments || [];
   const ds = document.getElementById('qa-dept');
   document.getElementById('qa-dept-wrap').style.display = depts.length ? '' : 'none';
-  ds.innerHTML = depts.length ? '<option value="">— Sem departamento —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') : '';
+  ds.innerHTML = depts.length ? '<option value="">— No department —</option>' + depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('') : '';
 }
 window.qaListChange = qaFillDept;
 function qaFillTemplates() {
@@ -1886,7 +1886,7 @@ function applyTemplate(t) {
     qaMonthDay = null;
   }
   qaRenderSubs();
-  showToast('Modelo aplicado: ' + t.name + (t.monthly ? ' (mensal)' : ''));
+  showToast('Template applied: ' + t.name + (t.monthly ? ' (mensal)' : ''));
 }
 window.qaApplyTemplate = () => {
   const t = templates.find(x => x.id === document.getElementById('qa-template').value);
@@ -1901,7 +1901,7 @@ window.useTemplate = (id) => {
   applyTemplate(t);
   setTimeout(() => tmAutoGrow(document.getElementById('qa-title')), 0);
 };
-// ── Templates (Modelos) ─────────────────────────────────────────────────────
+// ── Templates ─────────────────────────────────────────────────────
 function renderTplNav() {
   const el = document.getElementById('tpl-nav'); if (!el) return;
   el.innerHTML = templates.map(t => `<div class="tpl-nav-item" onclick="openEditTpl('${t.id}')">${esc(t.name)}</div>`).join('');
@@ -1914,7 +1914,7 @@ window.openTpl = () => {
   document.getElementById('tpl-step-day').value = '';
   document.getElementById('tpl-monthly').checked = false;
   document.getElementById('tpl-form-label').textContent = 'Novo modelo — nome';
-  document.getElementById('tpl-save-btn').textContent = 'Guardar modelo';
+  document.getElementById('tpl-save-btn').textContent = 'Save template';
   renderTplSteps(); renderTplExisting();
   document.getElementById('tpl-modal').style.display = 'flex';
 };
@@ -1926,8 +1926,8 @@ window.openEditTpl = (id) => {
   document.getElementById('tpl-monthly').checked = !!t.monthly;
   document.getElementById('tpl-step-input').value = '';
   document.getElementById('tpl-step-day').value = '';
-  document.getElementById('tpl-form-label').textContent = 'Editar modelo — nome';
-  document.getElementById('tpl-save-btn').textContent = 'Atualizar modelo';
+  document.getElementById('tpl-form-label').textContent = 'Edit template — name';
+  document.getElementById('tpl-save-btn').textContent = 'Update template';
   renderTplSteps(); renderTplExisting();
   document.getElementById('tpl-modal').style.display = 'flex';
 };
@@ -1944,28 +1944,28 @@ function renderTplSteps() {
 }
 function renderTplExisting() {
   document.getElementById('tpl-existing').innerHTML = templates.length
-    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name" style="cursor:pointer" onclick="openEditTpl('${t.id}')" title="Editar">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="tpl-use" onclick="useTemplate('${t.id}')">Usar</button><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
+    ? templates.map(t => `<div class="tpl-row"><span class="tpl-name" style="cursor:pointer" onclick="openEditTpl('${t.id}')" title="Edit">${esc(t.name)}${t.monthly?' <span class="badge st-rep">↻ mensal</span>':''}</span><span class="tpl-count">${(t.steps||[]).length} passos</span><button class="tpl-use" onclick="useTemplate('${t.id}')">Usar</button><button class="sub-del" onclick="deleteTemplate('${t.id}')">✕</button></div>`).join('')
     : '<div class="dash-empty" style="padding:0 0 4px">Ainda não tens modelos. Cria um abaixo.</div>';
 }
 window.saveTemplate = async () => {
   const name = document.getElementById('tpl-name').value.trim();
-  if (!name || !tplSteps.length) { showToast('Dá um nome e pelo menos um passo'); return; }
+  if (!name || !tplSteps.length) { showToast('Give a name and at least one step'); return; }
   const monthly = document.getElementById('tpl-monthly').checked;
   try {
     if (editingTplId) {
       await updateDoc(doc(db,'templates',editingTplId), {name, steps:tplSteps.slice(), monthly});
-      showToast('Modelo atualizado ✓');
+      showToast('Template updated ✓');
     } else {
       await addDoc(collection(db,'templates'), {name, steps:tplSteps.slice(), monthly, createdAt:serverTimestamp()});
-      showToast('Modelo guardado ✓');
+      showToast('Template saved ✓');
     }
     editingTplId = null; tplSteps = [];
     document.getElementById('tpl-name').value = ''; document.getElementById('tpl-monthly').checked = false;
     document.getElementById('tpl-form-label').textContent = 'Novo modelo — nome';
-    document.getElementById('tpl-save-btn').textContent = 'Guardar modelo';
+    document.getElementById('tpl-save-btn').textContent = 'Save template';
     renderTplSteps();
   } catch (e) {
-    showToast('Erro ao guardar: ' + (e.code || e.message));
+    showToast('Error saving: ' + (e.code || e.message));
   }
 };
 window.deleteTemplate = async (id) => { await deleteDoc(doc(db,'templates',id)); };
@@ -1973,7 +1973,7 @@ window.createQuickTask = async () => {
   const title = document.getElementById('qa-title').value.trim();
   if (!title) return;
   let dueDate = document.getElementById('qa-date').value || null;
-  if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) { dueDate = a; showToast('Fim de semana → movido para sexta-feira'); } }
+  if (dueDate) { const a = adjustWeekend(dueDate); if (a !== dueDate) { dueDate = a; showToast('Weekend → moved to Friday'); } }
   await addDoc(collection(db,'tasks'), {
     title,
     priority: document.getElementById('qa-priority').value || null,
@@ -1986,7 +1986,7 @@ window.createQuickTask = async () => {
   });
   qaSubs = []; qaMonthDay = null;
   closeQuickAdd();
-  showToast('Tarefa criada');
+  showToast('Task created');
 };
 function focusRow(t) {
   const today = todayStr();
@@ -1995,11 +1995,11 @@ function focusRow(t) {
   let dueHtml = '';
   if (t.dueDate) {
     let cls = 'due', lbl = fmtDate(t.dueDate);
-    if (t.dueDate < today) { cls = 'due late'; lbl += ' — vencida'; }
+    if (t.dueDate < today) { cls = 'due late'; lbl += ' — overdue'; }
     else if (t.dueDate === today) { cls = 'due today-due'; lbl = 'Hoje'; }
     dueHtml = `<span class="${cls}">${lbl}</span>`;
   }
-  const pMap = {alta:'Alta', media:'Média', baixa:'Baixa'};
+  const pMap = {alta:'High', media:'Medium', baixa:'Low'};
   const priHtml = t.priority ? `<span class="badge p-${t.priority}">${pMap[t.priority]}</span>` : '';
   const l = lists.find(x => x.id === t.listId);
   const tag = l ? `<span class="list-tag" style="background:${l.color}18;color:${l.color}">${esc(l.name)}</span>` : '';
@@ -2007,7 +2007,7 @@ function focusRow(t) {
   const subProg = subs.length ? `<span class="sub-prog">✓ ${doneN}/${subs.length}</span>` : '';
   const chev = subs.length ? `<button class="focus-chev" onclick="event.stopPropagation();toggleFocusSub('${t.id}')">${open?'▾':'▸'}</button>` : '';
   const calBtn = (!t.completed && accessToken)
-    ? `<button class="sched-btn focus-cal" onclick="event.stopPropagation();openSchedule('${t.id}','${esc(t.title).replace(/'/g,'&#39;')}','${t.dueDate||''}')" title="Bloquear no calendário">◷</button>`
+    ? `<button class="sched-btn focus-cal" onclick="event.stopPropagation();openSchedule('${t.id}','${esc(t.title).replace(/'/g,'&#39;')}','${t.dueDate||''}')" title="Block on calendar">◷</button>`
     : '';
   let html = `<div class="task ${t.completed?'done':''}">
     <div class="check ${t.completed?'checked':''}" onclick="toggleTask('${t.id}',${t.completed})"></div>
@@ -2017,7 +2017,7 @@ function focusRow(t) {
     </div>
     ${calBtn}
     ${chev}
-    <button class="del-btn" onclick="deleteTask('${t.id}')" title="Apagar">✕</button>
+    <button class="del-btn" onclick="deleteTask('${t.id}')" title="Delete">✕</button>
   </div>`;
   if (subs.length && open) {
     html += `<div class="focus-subs">` + subs.map(s => {
@@ -2042,10 +2042,10 @@ window.renderDashboard = async function() {
   const doneWeek = tasks.filter(t => t.completed && t.completedAt && t.completedAt >= weekAgo);
 
   const kpis = `<div class="dash-kpis">
-    <div class="kpi"><div class="num">${todayT.length}</div><div class="lbl">Hoje</div></div>
-    <div class="kpi ${overdue.length?'alert':''}"><div class="num">${overdue.length}</div><div class="lbl">Vencidas</div></div>
-    <div class="kpi"><div class="num">${week.length}</div><div class="lbl">Próx. 7 dias</div></div>
-    <div class="kpi"><div class="num">${doneWeek.length}</div><div class="lbl">Concluídas 7d</div></div>
+    <div class="kpi"><div class="num">${todayT.length}</div><div class="lbl">Today</div></div>
+    <div class="kpi ${overdue.length?'alert':''}"><div class="num">${overdue.length}</div><div class="lbl">Overdue</div></div>
+    <div class="kpi"><div class="num">${week.length}</div><div class="lbl">Next 7 days</div></div>
+    <div class="kpi"><div class="num">${doneWeek.length}</div><div class="lbl">Done 7d</div></div>
   </div>`;
 
   const focusKey = t => {
@@ -2057,7 +2057,7 @@ window.renderDashboard = async function() {
     .sort((a,b) => focusKey(a) < focusKey(b) ? -1 : 1);
   // Group by list, in sidebar order
   const focusBuckets = lists.map(l => ({ id: l.id, name: l.name, color: l.color, items: [] }));
-  const focusNoList = { id: '__none', name: 'Sem lista', color: '#aca497', items: [] };
+  const focusNoList = { id: '__none', name: 'No list', color: '#aca497', items: [] };
   focusParents.forEach(t => {
     const b = focusBuckets.find(x => x.id === t.listId) || focusNoList;
     b.items.push(t);
@@ -2072,12 +2072,12 @@ window.renderDashboard = async function() {
         </div>
         <div class="focus-group-body">${b.items.map(focusRow).join('')}</div>
       </div>`).join('')
-    : `<div class="dash-empty">Sem tarefas vencidas nem para hoje. Tudo em dia. ✦</div>`;
+    : `<div class="dash-empty">No overdue tasks and nothing for today. All set. ✦</div>`;
 
-  // Ação necessária — tarefas sem lista (todas devem pertencer a uma unidade)
+  // Ação necessária — tasks without list (todas devem pertencer a uma unidade)
   const orphans = active.filter(t => !t.listId);
   const orphanCard = orphans.length
-    ? `<div class="dash-card action-req"><h4>⚠ Ação necessária — ${orphans.length} ${orphans.length===1?'tarefa sem lista':'tarefas sem lista'}</h4>${orphans.map(taskHtml).join('')}<div class="action-hint">Abre cada uma e atribui uma lista — todas as tarefas devem pertencer a uma unidade.</div></div>`
+    ? `<div class="dash-card action-req"><h4>⚠ Action required — ${orphans.length} ${orphans.length===1?'task without list':'tasks without list'}</h4>${orphans.map(taskHtml).join('')}<div class="action-hint">Open each one and assign a list — every task should belong to a unit.</div></div>`
     : '';
 
   // Prazos · próximos 7 dias (tarefas + subtarefas, a vencer)
@@ -2089,12 +2089,12 @@ window.renderDashboard = async function() {
   const upParents = active.filter(t => (t.dueDate && t.dueDate > today && t.dueDate <= wEnd) || (t.subtasks||[]).some(s => s.due && !s.done && s.due > today && s.due <= wEnd))
     .sort((a,b) => upKey(a) < upKey(b) ? -1 : 1);
   const upcomingHtml = upParents.length ? upParents.map(focusRow).join('')
-    : `<div class="dash-empty">Sem prazos nos próximos 7 dias.</div>`;
+    : `<div class="dash-empty">No deadlines in the next 7 days.</div>`;
 
   // A precisar de atenção (bloqueadas + à espera)
   const attention = active.filter(t => t.status === 'blocked' || t.status === 'waiting');
   const attentionHtml = attention.length ? attention.map(taskHtml).join('')
-    : `<div class="dash-empty">Nada bloqueado nem em espera. ✦</div>`;
+    : `<div class="dash-empty">Nothing blocked or waiting. ✦</div>`;
 
   const unitHtml = lists.length ? lists.map(l => {
     const all = tasks.filter(t => t.listId === l.id);
@@ -2113,25 +2113,25 @@ window.renderDashboard = async function() {
         <div class="unit-pct">${pct}% concluído · ${ld.length}/${all.length}</div>
       </div>
     </div>`;
-  }).join('') : `<div class="dash-empty">Sem listas.</div>`;
+  }).join('') : `<div class="dash-empty">No lists.</div>`;
 
   const cnt = s => active.filter(t => (t.status||'todo') === s).length;
   const alta = active.filter(t => t.priority === 'alta').length;
   const stateHtml = `
-    <div class="stat-row"><span>Em curso</span><span class="v">${cnt('doing')}</span></div>
-    <div class="stat-row"><span>Bloqueadas</span><span class="v" style="color:#7a3030">${cnt('blocked')}</span></div>
-    <div class="stat-row"><span>À espera</span><span class="v">${cnt('waiting')}</span></div>
-    <div class="stat-row"><span>Por fazer</span><span class="v">${cnt('todo')}</span></div>
-    <div class="stat-row"><span>Alta prioridade</span><span class="v" style="color:#7a3030">${alta}</span></div>`;
+    <div class="stat-row"><span>In progress</span><span class="v">${cnt('doing')}</span></div>
+    <div class="stat-row"><span>Blocked</span><span class="v" style="color:#7a3030">${cnt('blocked')}</span></div>
+    <div class="stat-row"><span>Waiting</span><span class="v">${cnt('waiting')}</span></div>
+    <div class="stat-row"><span>To do</span><span class="v">${cnt('todo')}</span></div>
+    <div class="stat-row"><span>High priority</span><span class="v" style="color:#7a3030">${alta}</span></div>`;
 
   wrap.innerHTML = `${kpis}
     ${orphanCard}
-    <div class="dash-card"><h4>Foco de hoje</h4>${focusHtml}</div>
-    <div class="dash-card"><h4>A precisar de atenção</h4>${attentionHtml}</div>
-    <div class="dash-card"><h4>Prazos · próximos 7 dias</h4>${upcomingHtml}</div>
+    <div class="dash-card"><h4>Today's focus</h4>${focusHtml}</div>
+    <div class="dash-card"><h4>Needs attention</h4>${attentionHtml}</div>
+    <div class="dash-card"><h4>Deadlines · next 7 days</h4>${upcomingHtml}</div>
     <div class="dash-grid">
-      <div class="dash-card"><h4>Por unidade</h4>${unitHtml}</div>
-      <div class="dash-card"><h4>Estado &amp; prioridade</h4>${stateHtml}</div>
+      <div class="dash-card"><h4>By unit</h4>${unitHtml}</div>
+      <div class="dash-card"><h4>Status &amp; priority</h4>${stateHtml}</div>
     </div>`;
 };
 
@@ -2188,17 +2188,17 @@ function renderTasks() {
 
   if (view === 'done') {
     if (!all.length) {
-      wrap.innerHTML = `<div class="empty-state"><div class="ico">✓</div><p>Ainda não há tarefas concluídas.</p></div>`;
+      wrap.innerHTML = `<div class="empty-state"><div class="ico">✓</div><p>No completed tasks yet.</p></div>`;
       return;
     }
     // Group by list, then by month within each list
-    const monthLbl = (ts) => new Date(ts).toLocaleDateString('pt-PT', { year:'numeric', month:'long' });
+    const monthLbl = (ts) => new Date(ts).toLocaleDateString('en-GB', { year:'numeric', month:'long' });
     const monthKey = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); };
     const tsOf = (t) => t.completedAt || (t.dueDate ? new Date(t.dueDate).getTime() : Date.now());
 
     // Build list buckets in the same order as the sidebar (lists[]), with an "Outras" bucket for tasks with no list
     const buckets = lists.map(l => ({ id: l.id, name: l.name, color: l.color, items: [] }));
-    const orphans = { id: '__none', name: 'Sem lista', color: '#aca497', items: [] };
+    const orphans = { id: '__none', name: 'No list', color: '#aca497', items: [] };
     all.forEach(t => {
       const b = buckets.find(x => x.id === t.listId) || orphans;
       b.items.push(t);
@@ -2250,8 +2250,8 @@ function renderTasks() {
       const key = view + '::' + idx;
       const collapsed = collapsedDepts.has(key);
       let body = da.map(taskHtml).join('');
-      if (dd.length) body += `<div class="section-label done-toggle" style="padding-left:42px" onclick="toggleDone()"><span>${doneOpen?'▾':'▸'} Concluídas — ${dd.length}</span><div class="line"></div></div>` + (doneOpen ? dd.map(taskHtml).join('') : '');
-      if (!da.length && !dd.length) body = `<div class="dept-empty">Sem tarefas.</div>`;
+      if (dd.length) body += `<div class="section-label done-toggle" style="padding-left:42px" onclick="toggleDone()"><span>${doneOpen?'▾':'▸'} Completed — ${dd.length}</span><div class="line"></div></div>` + (doneOpen ? dd.map(taskHtml).join('') : '');
+      if (!da.length && !dd.length) body = `<div class="dept-empty">No tasks.</div>`;
       return `<div class="dept-drop ${collapsed?'collapsed':''}">
         <div class="dept-drop-hdr" onclick="toggleDept(${idx})">
           <span class="dept-drop-chev">&#9662;</span>
@@ -2272,11 +2272,11 @@ function renderTasks() {
   }
 
   if (!all.length) {
-    wrap.innerHTML = `<div class="empty-state"><div class="ico">—</div><p>Sem tarefas.<br>Adiciona uma nova abaixo.</p></div>`;
+    wrap.innerHTML = `<div class="empty-state"><div class="ico">—</div><p>No tasks.<br>Add a new one below.</p></div>`;
     return;
   }
   wrap.innerHTML = active.map(taskHtml).join('') +
-    (done.length ? `<div class="section-label done-toggle" onclick="toggleDone()"><span>${doneOpen?'▾':'▸'} Concluídas — ${done.length}</span><div class="line"></div></div>` + (doneOpen ? done.map(taskHtml).join('') : '') : '');
+    (done.length ? `<div class="section-label done-toggle" onclick="toggleDone()"><span>${doneOpen?'▾':'▸'} Completed — ${done.length}</span><div class="line"></div></div>` + (doneOpen ? done.map(taskHtml).join('') : '') : '');
 }
 window.toggleDept = (idx) => {
   const key = view + '::' + idx;
@@ -2299,11 +2299,11 @@ function taskHtml(t) {
   let dueHtml = '';
   if (t.dueDate) {
     let cls = 'due', lbl = fmtDate(t.dueDate);
-    if (!t.completed && t.dueDate < today) { cls = 'due late'; lbl += ' — vencida'; }
+    if (!t.completed && t.dueDate < today) { cls = 'due late'; lbl += ' — overdue'; }
     else if (t.dueDate === today)           { cls = 'due today-due'; lbl = 'Hoje'; }
     dueHtml = `<span class="${cls}">${lbl}</span>`;
   }
-  const pMap = {alta:'Alta', media:'Média', baixa:'Baixa'};
+  const pMap = {alta:'High', media:'Medium', baixa:'Low'};
   const priHtml = t.priority ? `<span class="badge p-${t.priority}">${pMap[t.priority]}</span>` : '';
   const stHtml = (!t.completed && t.status && STATUS[t.status]?.cls)
     ? `<span class="badge ${STATUS[t.status].cls}">${STATUS[t.status].label}</span>` : '';
@@ -2316,7 +2316,7 @@ function taskHtml(t) {
     if (l) tagHtml = `<span class="list-tag" style="background:${l.color}18;color:${l.color}">${esc(l.name)}</span>`;
   }
   const schedHtml = (!t.completed && accessToken)
-    ? `<button class="sched-btn" onclick="openSchedule('${t.id}','${esc(t.title).replace(/'/g,'&#39;')}','${t.dueDate||''}')" title="Agendar no calendário">◷</button>`
+    ? `<button class="sched-btn" onclick="openSchedule('${t.id}','${esc(t.title).replace(/'/g,'&#39;')}','${t.dueDate||''}')" title="Schedule on calendar">◷</button>`
     : '';
   return `<div class="task ${t.completed?'done':''}">
     <div class="check ${t.completed?'checked':''}" onclick="toggleTask('${t.id}',${t.completed})"></div>
@@ -2325,7 +2325,7 @@ function taskHtml(t) {
       <div class="task-meta">${priHtml}${stHtml}${repHtml}${dueHtml}${subHtml}${tagHtml}</div>
     </div>
     ${schedHtml}
-    <button class="del-btn" onclick="deleteTask('${t.id}')" title="Apagar">✕</button>
+    <button class="del-btn" onclick="deleteTask('${t.id}')" title="Delete">✕</button>
   </div>`;
 }
 
@@ -2359,8 +2359,8 @@ function renderCalendarView(events) {
     else if (date === tomorrow) label = 'Amanhã — ' + label;
     const evtHtml = evts.map(e => {
       const isAllDay = !!e.start.date;
-      const startStr = isAllDay ? 'Dia todo' : new Date(e.start.dateTime).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
-      const endStr   = !isAllDay && e.end?.dateTime ? ' – ' + new Date(e.end.dateTime).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}) : '';
+      const startStr = isAllDay ? 'Dia todo' : new Date(e.start.dateTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      const endStr   = !isAllDay && e.end?.dateTime ? ' – ' + new Date(e.end.dateTime).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '';
       const loc = e.location ? `<div class="cal-loc">${esc(e.location)}</div>` : '';
       const taskDate = isAllDay ? e.start.date : e.start.dateTime.split('T')[0];
       return `<div class="cal-event">
@@ -2382,20 +2382,20 @@ function fmtEmailDate(s) {
   const d = new Date(s); if (isNaN(d)) return '';
   const today = new Date();
   const sameDay = d.toDateString() === today.toDateString();
-  if (sameDay) return d.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'});
-  return d.toLocaleDateString('pt-PT', {day:'2-digit', month:'short'});
+  if (sameDay) return d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  return d.toLocaleDateString('en-GB', {day:'2-digit', month:'short'});
 }
 function renderEmailView(emails) {
   const wrap = document.getElementById('tasks-wrap');
   const bar = renderEmailBar();
   if (!emails.length) {
-    wrap.innerHTML = bar + `<div class="empty-state"><div class="ico">◎</div><p>Sem emails para este filtro.</p></div>`;
+    wrap.innerHTML = bar + `<div class="empty-state"><div class="ico">◎</div><p>No emails for this filter.</p></div>`;
     return;
   }
   const list = emails.map(e => `
     <div class="email-card ${e.unread?'unread':''}">
       <div class="email-head">
-        ${e.unread ? '<span class="email-dot" title="Por ler"></span>' : ''}
+        ${e.unread ? '<span class="email-dot" title="Unread"></span>' : ''}
         ${e.starred ? '<span class="email-star" title="Importante">★</span>' : ''}
         <div class="email-from">${esc(e.from)}</div>
         <div class="email-date">${fmtEmailDate(e.date)}</div>
@@ -2403,8 +2403,8 @@ function renderEmailView(emails) {
       <div class="email-subject">${esc(e.subject)}</div>
       <div class="email-snippet">${esc(e.snippet)}</div>
       <div class="email-footer">
-        <a class="email-open" href="https://mail.google.com/mail/u/0/#inbox/${e.id}" target="_blank">↗ Abrir no Gmail</a>
-        <button class="email-task-btn" onclick="emailToTask('${esc(e.subject).replace(/'/g,"\\'")}')">→ Criar task</button>
+        <a class="email-open" href="https://mail.google.com/mail/u/0/#inbox/${e.id}" target="_blank">↗ Open in Gmail</a>
+        <button class="email-task-btn" onclick="emailToTask('${esc(e.subject).replace(/'/g,"\\'")}')">→ Create task</button>
       </div>
     </div>`).join('');
   wrap.innerHTML = bar + list;
@@ -2424,7 +2424,7 @@ function renderSidebar() {
 
 function renderListSelect() {
   const s = document.getElementById('new-list'), cur = s.value;
-  s.innerHTML = '<option value="">Sem lista</option>' +
+  s.innerHTML = '<option value="">No list</option>' +
     lists.map(l => `<option value="${l.id}" ${cur===l.id?'selected':''}>${esc(l.name)}</option>`).join('');
   updateDeptSelect();
 }
@@ -2436,7 +2436,7 @@ function updateDeptSelect() {
   const wrap = document.getElementById('dept-select-wrap');
   wrap.style.display = depts.length ? 'block' : 'none';
   if (depts.length) {
-    document.getElementById('new-dept').innerHTML = '<option value="">Departamento</option>' +
+    document.getElementById('new-dept').innerHTML = '<option value="">Department</option>' +
       depts.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
   }
 }
