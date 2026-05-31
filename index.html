@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-a ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-b ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1261,7 +1261,8 @@ const BOA_GREEN = { red: 0.137, green: 0.231, blue: 0.204 }; // #233b34
 const BOA_TAUPE = { red: 0.674, green: 0.643, blue: 0.592 }; // #aca497
 const BOA_BLACK = { red: 0.149, green: 0.149, blue: 0.149 }; // #262626
 const DOC_STYLES = {
-  heading:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:16,unit:'PT'}, bold:true,  foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  // Brand-aligned: uppercase title with letter-spacing feel (Cormorant as alternate to PP Fragment Glare)
+  heading:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:500}, fontSize:{magnitude:22,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   subhead:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   separator:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   subOpen:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
@@ -1270,8 +1271,8 @@ const DOC_STYLES = {
   empty:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   futureNote:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   discussionMark:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
-  attendeeName:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
-  discussionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  attendeeName:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:500}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  discussionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   discussionBody:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
   // Brand-book additions (mirroring the Word export)
   subtitle:        { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
@@ -1280,7 +1281,7 @@ const DOC_STYLES = {
   metaSep:         { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   progressLabel:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:9,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   progressBar:     { weightedFontFamily:{fontFamily:'Consolas',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
-  subsectionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  subsectionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:500}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   // Meta cell styles (applied to cells of the real Docs table)
   metaCellLabel:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:8,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   metaCellValue:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
@@ -1301,15 +1302,16 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   if (task.department) subtitleParts.push(task.department);
   const subtitle = subtitleParts.join(' · ');
 
-  // ── HEADER block (mirrors Word brand book) ─────────────────────────
-  segs.push({ text: `📋 ${task.title || 'Meeting'}\n`, style: 'heading' });
+  // ── HEADER block (refined BOA brand styling) ────────────────────
+  segs.push({ text: (task.title || 'Meeting').toUpperCase() + '\n', style: 'heading' });
   if (subtitle) segs.push({ text: subtitle + '\n', style: 'subtitle' });
-  segs.push({ text: meetingLabel + '\n', style: 'subhead' });
+  // Date subhead carries a bottom border (replaces the dash separator line)
+  segs.push({ text: meetingLabel + '\n', style: 'subhead', borderBottom: true });
 
-  // Placeholder for the META TABLE — replaced with real Docs table after insertion
+  // Placeholder for the META TABLE
   segs.push({ text: '[[META_TABLE]]\n', style: null });
 
-  // PROGRESS bar (text + colored boxes — approximates Word's progress band)
+  // PROGRESS bar (text + unicode blocks; subtler than before)
   const allSubs = task.subtasks || [];
   const doneAll = allSubs.filter(s => s.done).length;
   const totalAll = allSubs.length;
@@ -1317,16 +1319,14 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
     const pct = Math.round(doneAll / totalAll * 100);
     const blocks = Math.round(pct / 5);
     const bar = '█'.repeat(blocks) + '░'.repeat(20 - blocks);
-    segs.push({ text: `PROGRESS · ${doneAll}/${totalAll} · ${pct}%\n`, style: 'progressLabel' });
-    segs.push({ text: bar + '\n', style: 'progressBar' });
+    segs.push({ text: `${bar}   ${doneAll}/${totalAll} · ${pct}%\n`, style: 'progressBar' });
   }
 
-  segs.push({ text: '─'.repeat(60) + '\n', style: 'separator' });
-
-  // ── OPEN SUBTASKS section ─────────────────────────────────────────
+  // ── AGENDA ───────────────────────────────────────────────────────
+  segs.push({ text: '\n', style: null });
+  segs.push({ text: 'AGENDA\n', style: 'subsectionLabel', borderBottom: true });
+  segs.push({ text: '\n', style: null });
   if (subs.length) {
-    segs.push({ text: `OPEN SUBTASKS · ${subs.length} pending\n`, style: 'subsectionLabel' });
-    segs.push({ text: '\n', style: null });
     for (const s of subs) {
       const due = s.due ? '  ('+fmtDate(s.due)+')' : '';
       segs.push({ text: s.text + due + '\n', style: 'subOpen', checkbox: true });
@@ -1343,21 +1343,21 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   }
 
   if (futureCount > 0) {
-    segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
+    segs.push({ text: `+${futureCount} subtask${futureCount===1?'':'s'} scheduled for later — not shown\n`, style: 'futureNote' });
   }
 
-  // ── DISCUSSION section ────────────────────────────────────────────
+  // ── DISCUSSION ───────────────────────────────────────────────────
   segs.push({ text: '\n', style: null });
-  segs.push({ text: '💬 DISCUSSION · ATTENDEES\n', style: 'subsectionLabel' });
+  segs.push({ text: 'DISCUSSION\n', style: 'subsectionLabel', borderBottom: true });
   segs.push({ text: '\n', style: null });
   const attList = (attendees && attendees.length) ? attendees : [null];
   for (const email of attList) {
     const name = email ? nameFromEmail(email) : 'Open discussion';
-    segs.push({ text: `👤 ${name}\n`, style: 'attendeeName' });
-    segs.push({ text: 'Topics:\n', style: 'discussionLabel' });
+    segs.push({ text: `👤 ${name.toUpperCase()}\n`, style: 'attendeeName' });
+    segs.push({ text: 'Topics\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
-    segs.push({ text: 'Follow-up tasks:\n', style: 'discussionLabel' });
+    segs.push({ text: 'Follow-up tasks\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
     segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
     segs.push({ text: '\n', style: null });
@@ -1384,7 +1384,24 @@ function segmentsToRequests(segments, startIdx) {
         }
       });
     }
-    if (seg.checkbox) checkboxRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
+    // Bottom border on paragraph — replaces the dashed separator line for a cleaner brand look
+    if (seg.borderBottom) {
+      requests.push({
+        updateParagraphStyle: {
+          range: { startIndex: cursor, endIndex: cursor + seg.text.length },
+          paragraphStyle: {
+            borderBottom: {
+              color: { color: { rgbColor: BOA_TAUPE } },
+              width: { magnitude: 0.5, unit: 'PT' },
+              padding: { magnitude: 6, unit: 'PT' },
+              dashStyle: 'SOLID'
+            }
+          },
+          fields: 'borderBottom'
+        }
+      });
+    }
+    if (seg.checkbox)  checkboxRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
     if (seg.bulletDot) dotRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
     cursor += seg.text.length;
   }
@@ -1554,15 +1571,19 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     if (line === '(no open subtasks for this date)') continue;
     // Skip brand-book decorative lines
     if (/^OPEN SUBTASKS/i.test(line)) continue;
+    if (/^AGENDA\s*$/i.test(line)) continue;
     if (line.startsWith('Progress ') && line.includes('%')) continue;
     if (/^PROGRESS\b/i.test(line)) continue;
-    if (/^[█░]+$/.test(line)) continue;
+    if (/^[█░]+/.test(line)) continue;
     if (/^STATUS\b/i.test(line) && line.includes('·')) continue;
     if (line === '[[META_TABLE]]') continue;
+    if (line.startsWith('+') && line.includes('scheduled for')) continue;
+    if (/^Topics\s*$/i.test(line))             { inDiscussionType = 'topics'; continue; }
+    if (/^Follow-?up tasks\s*$/i.test(line))   { inDiscussionType = 'tasks';  continue; }
     // Skip table cells if the parser ever traverses a table (it shouldn't, since we filter by paragraph)
 
-    // Discussion area boundary
-    if (line.includes('💬') && line.includes('Discussion')) {
+    // Discussion area boundary (new clean format "DISCUSSION" or legacy "💬 Discussion · attendees")
+    if (/^DISCUSSION\s*$/i.test(line) || (line.includes('💬') && line.toLowerCase().includes('discussion'))) {
       flush(); inDiscussion = true; inDiscussionType = null; currentAttendee = null;
       continue;
     }
