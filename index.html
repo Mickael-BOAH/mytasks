@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-e ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-f ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1788,23 +1788,28 @@ window.pushUpdatesToDoc = async function() {
 
     if (!toAdd.length) { showToast('Doc already up to date — nothing to add'); return; }
 
-    // Insertion point: right BEFORE the discussion marker if present (keeps agenda items together,
-    // attendee discussion area below them). Falls back to end of section.
+    // Insertion point: right BEFORE the DISCUSSION marker so agenda stays together above attendee area
+    // Match both new format ("DISCUSSION" alone) and legacy ("💬 Discussion · ...")
     let insertIdx = null;
     for (const el of section.body) {
       if (el.startIndex <= section.startIdx) continue;
       if (section.endIdx && el.startIndex >= section.endIdx) break;
-      const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
-      if (txt.includes('💬') && txt.includes('Discussion')) {
-        insertIdx = el.startIndex; // insert immediately before the marker
+      if (!el.paragraph) continue;
+      const txt = el.paragraph.elements?.map(e => e.textRun?.content || '').join('').replace(/\n+$/, '') || '';
+      if (/^DISCUSSION\s*$/i.test(txt) || (txt.includes('💬') && txt.toLowerCase().includes('discussion'))) {
+        insertIdx = el.startIndex;
         break;
       }
     }
     if (insertIdx === null) {
-      if (section.endIdx) insertIdx = section.endIdx - 1;
-      else {
-        const lastEl = section.body[section.body.length - 1];
-        insertIdx = (lastEl?.endIndex || 1) - 1;
+      // No DISCUSSION marker found in this section — fall back to end of section (just before the next meeting)
+      if (section.endIdx) {
+        insertIdx = section.endIdx - 1;
+      } else {
+        // Last meeting in doc — abort rather than dump at end of doc (would have wrecked layout)
+        showToast('Could not locate insertion point — Doc structure unexpected');
+        console.warn('[Push updates] no DISCUSSION marker and no section.endIdx — aborting to protect doc');
+        return;
       }
     }
 
