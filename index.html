@@ -350,6 +350,14 @@
     .tpl-use:hover { opacity:.85; }
     .focus-chev { background:none; border:none; cursor:pointer; color:var(--taupe); font-size:12px; padding:0 8px; align-self:center; flex-shrink:0; }
     .focus-chev:hover { color:var(--green); }
+    .focus-cal { opacity:.7 !important; font-size:15px !important; padding:0 6px !important; }
+    .focus-cal:hover { opacity:1 !important; color:var(--green) !important; }
+    .focus-group { margin:6px 0 14px; }
+    .focus-group:last-child { margin-bottom:0; }
+    .focus-group-hdr { display:flex; align-items:center; gap:10px; padding:6px 0 8px; border-bottom:1px solid rgba(172,164,151,.2); margin-bottom:8px; }
+    .focus-group-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .focus-group-name { font-size:11px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--green); flex:1; }
+    .focus-group-count { font-size:11px; color:var(--taupe); letter-spacing:.05em; font-weight:500; }
     .focus-subs { padding:2px 0 12px 46px; }
     .focus-sub { display:flex; align-items:center; gap:9px; padding:4px 0; font-size:14px; }
     .focus-sub.done .focus-sub-text { text-decoration:line-through; color:var(--taupe); }
@@ -566,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-g ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-h ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
@@ -1962,12 +1970,16 @@ function focusRow(t) {
   const doneN = subs.filter(s => s.done).length;
   const subProg = subs.length ? `<span class="sub-prog">✓ ${doneN}/${subs.length}</span>` : '';
   const chev = subs.length ? `<button class="focus-chev" onclick="event.stopPropagation();toggleFocusSub('${t.id}')">${open?'▾':'▸'}</button>` : '';
+  const calBtn = (!t.completed && accessToken)
+    ? `<button class="sched-btn focus-cal" onclick="event.stopPropagation();openSchedule('${t.id}','${esc(t.title).replace(/'/g,'&#39;')}','${t.dueDate||''}')" title="Bloquear no calendário">◷</button>`
+    : '';
   let html = `<div class="task ${t.completed?'done':''}">
     <div class="check ${t.completed?'checked':''}" onclick="toggleTask('${t.id}',${t.completed})"></div>
     <div class="task-body" onclick="openTask('${t.id}')">
       <div class="task-title">${esc(t.title)}</div>
       <div class="task-meta">${priHtml}${dueHtml}${subProg}${tag}</div>
     </div>
+    ${calBtn}
     ${chev}
     <button class="del-btn" onclick="deleteTask('${t.id}')" title="Apagar">✕</button>
   </div>`;
@@ -2007,7 +2019,23 @@ window.renderDashboard = async function() {
   };
   const focusParents = active.filter(t => (t.dueDate && t.dueDate <= today) || (t.subtasks||[]).some(s => s.due && !s.done && s.due <= today))
     .sort((a,b) => focusKey(a) < focusKey(b) ? -1 : 1);
-  const focusHtml = focusParents.length ? focusParents.map(focusRow).join('')
+  // Group by list, in sidebar order
+  const focusBuckets = lists.map(l => ({ id: l.id, name: l.name, color: l.color, items: [] }));
+  const focusNoList = { id: '__none', name: 'Sem lista', color: '#aca497', items: [] };
+  focusParents.forEach(t => {
+    const b = focusBuckets.find(x => x.id === t.listId) || focusNoList;
+    b.items.push(t);
+  });
+  const focusAllBuckets = [...focusBuckets.filter(b => b.items.length), ...(focusNoList.items.length ? [focusNoList] : [])];
+  const focusHtml = focusParents.length
+    ? focusAllBuckets.map(b => `<div class="focus-group">
+        <div class="focus-group-hdr">
+          <span class="focus-group-dot" style="background:${b.color}"></span>
+          <span class="focus-group-name">${esc(b.name)}</span>
+          <span class="focus-group-count">${b.items.length}</span>
+        </div>
+        <div class="focus-group-body">${b.items.map(focusRow).join('')}</div>
+      </div>`).join('')
     : `<div class="dash-empty">Sem tarefas vencidas nem para hoje. Tudo em dia. ✦</div>`;
 
   // Ação necessária — tarefas sem lista (todas devem pertencer a uma unidade)
