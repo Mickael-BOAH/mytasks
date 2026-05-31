@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-x ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-y ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1867,9 +1867,10 @@ window.exportTaskWord = () => {
   </table>`;
 
   // Progress bar (text-based — Word renders it as a colored band)
-  const subs = t.subtasks || [];
-  const doneN = subs.filter(s => s.done).length;
-  const totalN = subs.length;
+  const allSubs = t.subtasks || [];
+  const subs = allSubs.filter(s => !s.done); // Word export shows only active subtasks (done are hidden, like in the Doc)
+  const doneN = allSubs.filter(s => s.done).length;
+  const totalN = allSubs.length;
   const pct = totalN ? Math.round(doneN / totalN * 100) : 0;
   const progressHtml = totalN ? `
     <div style="margin:0 0 26px 0">
@@ -1921,7 +1922,7 @@ window.exportTaskWord = () => {
         </td>
       </tr>`;
     }).join('');
-    subsHtml = sectionLabel('Subtasks · checklist') + `
+    subsHtml = sectionLabel(`Open subtasks · ${subs.length} pending${doneN ? ` (of ${totalN} total)` : ''}`) + `
       <table style="width:100%;border-collapse:collapse;margin:0 0 8px">
         <tr style="background:${BG}">
           <th style="padding:7px 8px;border-bottom:2px solid ${G};font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:${G};text-align:left;width:24px">·</th>
@@ -1972,11 +1973,23 @@ window.exportTaskWord = () => {
       ${progressHtml}
       ${notesHtml}
       ${subsHtml}
+      ${(subs.length === 0 && totalN > 0) ? `<p style="font-size:13px;color:${T};font-style:italic;margin:8px 0 0">All ${totalN} subtask${totalN===1?'':'s'} completed. ✦</p>` : ''}
 
-      ${t.linkedDoc ? `
-        <p style="margin:24px 0 0;font-size:11px;color:${T};font-style:italic">
-          Linked Google Doc: <a href="${esc(t.linkedDoc)}" style="color:${G}">${esc(t.linkedDoc)}</a>
-        </p>` : ''}
+      ${(t.linkedDoc || t.lastMeetingUrl) ? `
+        ${sectionLabel('Linked resources')}
+        <table style="width:100%;border-collapse:collapse">
+          ${t.linkedDoc ? `<tr>
+            <td style="padding:8px 10px 8px 0;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:${T};white-space:nowrap;vertical-align:top">Google Doc</td>
+            <td style="padding:8px 0;font-size:12px;color:${G};word-break:break-all"><a href="${esc(t.linkedDoc)}" style="color:${G};text-decoration:underline">${esc(t.linkedDoc)}</a></td>
+          </tr>` : ''}
+          ${t.lastMeetingUrl ? `<tr>
+            <td style="padding:8px 10px 8px 0;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:${T};white-space:nowrap;vertical-align:top">Latest meeting</td>
+            <td style="padding:8px 0;font-size:12px;color:${G};word-break:break-all">
+              <a href="${esc(t.lastMeetingUrl)}" style="color:${G};text-decoration:underline">${esc(t.lastMeetingUrl)}</a>
+              ${t.lastMeetingAt ? `<br><span style="color:${T};font-style:italic;font-size:11px">Scheduled ${esc(t.lastMeetingAt.replace('T',' · '))}</span>` : ''}
+            </td>
+          </tr>` : ''}
+        </table>` : ''}
 
       <!-- Footer -->
       <table style="width:100%;border-collapse:collapse;margin-top:40px;border-top:1px solid ${T}">
@@ -2348,7 +2361,18 @@ window.confirmSchedule = async function() {
       body: JSON.stringify(body)
     });
     if (!r.ok) throw new Error(await r.text());
+    const eventData = await r.json();
     closeSchedule();
+    // Save the calendar event link on the task so the Word export can include it
+    if (srcTask?.id && eventData?.htmlLink) {
+      try {
+        await updateDoc(doc(db,'tasks',srcTask.id), {
+          lastMeetingUrl: eventData.htmlLink,
+          lastMeetingAt: `${date}T${start}`,
+          lastMeetingTitle: title
+        });
+      } catch {}
+    }
     // If the source task has a linked Doc, also append a meeting section to it
     let docAppended = false;
     if (srcTask?.linkedDoc) {
