@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-t ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-u ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1268,7 +1268,9 @@ const DOC_STYLES = {
   subDone:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, strikethrough:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   note:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   empty:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
-  futureNote: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} }
+  futureNote: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  discussionMark: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  discussionBody: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} }
 };
 
 function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount) {
@@ -1294,10 +1296,14 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   } else {
     segs.push({ text: '(no agenda items for this date)\n', style: 'empty' });
   }
+  // Discussion area — attendees write topics here (parser skips plain text, captures any checkbox they add)
+  segs.push({ text: '\n', style: null });
+  segs.push({ text: '─── 💬 Discussion · attendees write topics below ───\n', style: 'discussionMark' });
+  segs.push({ text: '\n', style: 'discussionBody' }); // empty styled line ready for writing
   if (futureCount > 0) {
     segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
   }
-  segs.push({ text: '\n', style: null }); // blank spacer
+  segs.push({ text: '\n', style: null }); // blank spacer between meetings
   return segs;
 }
 
@@ -1415,6 +1421,8 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     if (/^─+\s*$/.test(line)) continue;
     if (line.startsWith('(+') && line.includes('scheduled for')) continue;
     if (line === '(no agenda items for this date)') continue;
+    // Discussion area marker — anything beyond this is free attendee text (only checkboxes get picked up)
+    if (line.includes('💬') && line.includes('Discussion')) { flush(); continue; }
 
     // Subtask: a paragraph with a bullet (real Docs checkbox) OR legacy ☐/☑ text
     if (hasBullet) {
@@ -1521,12 +1529,24 @@ window.pushUpdatesToDoc = async function() {
 
     if (!toAdd.length) { showToast('Doc already up to date — nothing to add'); return; }
 
-    // Build one batch with all new items appended just before the spacer of our section
-    let insertIdx;
-    if (section.endIdx) insertIdx = section.endIdx - 1;
-    else {
-      const lastEl = section.body[section.body.length - 1];
-      insertIdx = (lastEl?.endIndex || 1) - 1;
+    // Insertion point: right BEFORE the discussion marker if present (keeps agenda items together,
+    // attendee discussion area below them). Falls back to end of section.
+    let insertIdx = null;
+    for (const el of section.body) {
+      if (el.startIndex <= section.startIdx) continue;
+      if (section.endIdx && el.startIndex >= section.endIdx) break;
+      const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
+      if (txt.includes('💬') && txt.includes('Discussion')) {
+        insertIdx = el.startIndex; // insert immediately before the marker
+        break;
+      }
+    }
+    if (insertIdx === null) {
+      if (section.endIdx) insertIdx = section.endIdx - 1;
+      else {
+        const lastEl = section.body[section.body.length - 1];
+        insertIdx = (lastEl?.endIndex || 1) - 1;
+      }
     }
 
     // Compose combined block (subtask + notes-slot per item)
