@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-b ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-c ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1280,7 +1280,7 @@ const DOC_STYLES = {
   metaValue:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
   metaSep:         { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
   progressLabel:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:9,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
-  progressBar:     { weightedFontFamily:{fontFamily:'Consolas',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  progressBar:     { weightedFontFamily:{fontFamily:'Courier New',weight:400}, fontSize:{magnitude:11,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   subsectionLabel: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:500}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
   // Meta cell styles (applied to cells of the real Docs table)
   metaCellLabel:   { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:8,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
@@ -1487,8 +1487,15 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
     docResp = await docFetch(docId, 'GET');
     if (!docResp.ok) return true;
     docJson = await docResp.json();
-    const tableEl = (docJson.body?.content || []).find(el => el.startIndex === tableIdx && el.table);
-    if (!tableEl) return true;
+    const body = docJson.body?.content || [];
+    // Robust find: nearest table to where we just inserted (look at/after tableIdx, fall back to before)
+    let tableEl = body.find(el => el.table && el.startIndex >= tableIdx && el.startIndex <= tableIdx + 5);
+    if (!tableEl) tableEl = body.filter(el => el.table).sort((a,b) => Math.abs(a.startIndex - tableIdx) - Math.abs(b.startIndex - tableIdx))[0];
+    if (!tableEl) {
+      console.warn('[Doc write step 4] no table found near tableIdx=', tableIdx, 'tables in body:', body.filter(el=>el.table).map(t=>t.startIndex));
+      return true;
+    }
+    console.log('[Doc write step 4] tableEl at', tableEl.startIndex, 'rows:', tableEl.table.tableRows?.length);
     const rows = tableEl.table.tableRows || [];
 
     // ── STEP 5: fill cells from LAST to FIRST to preserve indices ──────
@@ -1498,7 +1505,7 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
       for (let c = cellsArr.length - 1; c >= 0; c--) {
         const cell = cellsArr[c];
         const firstParagraph = cell.content?.find(x => x.paragraph);
-        if (!firstParagraph) continue;
+        if (!firstParagraph) { console.warn('[Step 5] no paragraph in cell', r, c); continue; }
         const insertIdx = firstParagraph.startIndex;
         const text = (r === 0 ? cols[c][0] : cols[c][1]);
         const styleKey = r === 0 ? 'metaCellLabel' : 'metaCellValue';
@@ -1511,10 +1518,15 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
         }});
       }
     }
+    console.log('[Doc write step 5] fill requests:', fillRequests.length);
     if (fillRequests.length) {
       resp = await docFetch(docId, 'POST', { requests: fillRequests });
       if (!resp.ok) {
-        console.warn('[Doc write step 5 — fill cells] FAILED', resp.status, await resp.text());
+        const errTxt = await resp.text();
+        console.warn('[Doc write step 5 — fill cells] FAILED', resp.status, errTxt);
+        showToast('Meta cells fill failed — see console');
+      } else {
+        console.log('[Doc write] all 5 steps OK ✓');
       }
     }
     return true;
