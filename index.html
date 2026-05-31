@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-p ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-q ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1249,40 +1249,85 @@ function updateDocStatus() {
 }
 window.maybeSyncDoc = function() { /* deprecated — sync now only on meeting creation */ };
 
-// Append a new dated meeting section to the linked Doc.
-// Called from confirmSchedule() AFTER the calendar event is created.
+// ── BOA brand styling for Google Docs ────────────────────────────────────
+const BOA_GREEN = { red: 0.137, green: 0.231, blue: 0.204 }; // #233b34
+const BOA_TAUPE = { red: 0.674, green: 0.643, blue: 0.592 }; // #aca497
+const BOA_BLACK = { red: 0.149, green: 0.149, blue: 0.149 }; // #262626
+const DOC_STYLES = {
+  heading:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:600}, fontSize:{magnitude:16,unit:'PT'}, bold:true,  foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  subhead:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  separator:  { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  subOpen:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, foregroundColor:{color:{rgbColor:BOA_BLACK}} },
+  subDone:    { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:12,unit:'PT'}, strikethrough:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  note:       { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:10,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_GREEN}} },
+  empty:      { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:11,unit:'PT'}, italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} },
+  futureNote: { weightedFontFamily:{fontFamily:'Cormorant Garamond',weight:400}, fontSize:{magnitude:9,unit:'PT'},  italic:true, foregroundColor:{color:{rgbColor:BOA_TAUPE}} }
+};
+
+function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount) {
+  const segs = [];
+  const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
+  segs.push({ text: `📋 ${task.title || 'Meeting'}\n`, style: 'heading' });
+  segs.push({ text: `${meetingLabel}\n`,               style: 'subhead' });
+  segs.push({ text: '─'.repeat(60) + '\n',             style: 'separator' });
+  if (subs.length) {
+    for (const s of subs) {
+      const sym = s.done ? '☑ ' : '☐ ';
+      const due = s.due ? '  ('+fmtDate(s.due)+')' : '';
+      segs.push({ text: sym + s.text + due + '\n', style: s.done ? 'subDone' : 'subOpen' });
+      if (s.notes) {
+        for (const nl of s.notes.split('\n')) {
+          if (nl.trim()) segs.push({ text: '    ↳ ' + nl + '\n', style: 'note' });
+        }
+      }
+    }
+  } else {
+    segs.push({ text: '(no agenda items for this date)\n', style: 'empty' });
+  }
+  if (futureCount > 0) {
+    segs.push({ text: `(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)\n`, style: 'futureNote' });
+  }
+  segs.push({ text: '\n', style: null }); // blank spacer
+  return segs;
+}
+
+function segmentsToRequests(segments, startIdx) {
+  const fullText = segments.map(s => s.text).join('');
+  const requests = [{ insertText: { location: { index: startIdx }, text: fullText } }];
+  let cursor = startIdx;
+  for (const seg of segments) {
+    if (seg.style) {
+      const styleObj = DOC_STYLES[seg.style];
+      requests.push({
+        updateTextStyle: {
+          range: { startIndex: cursor, endIndex: cursor + seg.text.length },
+          textStyle: styleObj,
+          fields: Object.keys(styleObj).join(',')
+        }
+      });
+    }
+    cursor += seg.text.length;
+  }
+  return requests;
+}
+
+// Append a new dated meeting section to the linked Doc, fully styled with BOA brand.
 async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
   if (!task?.linkedDoc || !accessToken) return false;
   const docId = parseDocId(task.linkedDoc); if (!docId) return false;
   const allSubs = task.subtasks || [];
-  // Only subtasks relevant for this meeting:
-  // - no due date (always relevant — general agenda items)
-  // - due date on or before the meeting date (today's or overdue items)
-  // Excludes subtasks scheduled for future weeks (not today's topic)
   const subs = allSubs.filter(s => !s.due || s.due <= dateStr);
   const futureCount = allSubs.length - subs.length;
 
-  // Heading: title + meeting date + time. Date format dd/mm/yyyy.
-  const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
-  const heading = `📋 ${task.title || 'Meeting'} — ${meetingLabel}`;
-  const sep = '─'.repeat(50);
-  const lines = subs.length
-    ? subs.map(s => (s.done ? '☑ ' : '☐ ') + s.text + (s.due ? '  ('+fmtDate(s.due)+')' : '')).join('\n')
-    : '(no agenda items for this date)';
-  const futureNote = futureCount > 0 ? `\n(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)` : '';
-  // Newest meetings on top: insert at index 1 (after doc start). Each section is appended/prepended as a block.
-  const blockText = heading + '\n' + sep + '\n' + lines + futureNote + '\n\n';
+  const segments = buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCount);
+  const requests = segmentsToRequests(segments, 1);
 
   try {
-    console.log('[Doc write] docId=', docId, 'token starts:', accessToken.slice(0,12)+'…');
-    console.log('[Doc write] blockText length:', blockText.length);
-    // Insert at index 1 (right at the top of the doc body) so newest meeting appears first
+    console.log('[Doc write] docId=', docId, 'requests:', requests.length);
     const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests: [
-        { insertText: { location: { index: 1 }, text: blockText } }
-      ]})
+      body: JSON.stringify({ requests })
     });
     console.log('[Doc write] response status:', resp.status);
     if (!resp.ok) {
@@ -1329,9 +1374,6 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
         break;
       }
       inSection = true;
-      // Extract dd/mm/yyyy from the heading
-      const dm = line.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-      if (dm) sectionDate = `${dm[3]}-${dm[2]}-${dm[1]}`;
       continue;
     }
     // Different task heading → our section ended
@@ -1341,6 +1383,11 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     }
     if (!inSection) continue;
 
+    // Date subhead (right after heading) — extract dd/mm/yyyy
+    if (!sectionDate) {
+      const dm = line.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (dm) { sectionDate = `${dm[3]}-${dm[2]}-${dm[1]}`; continue; }
+    }
     // Skip the separator line
     if (/^─+\s*$/.test(line)) continue;
     // Skip footer note
