@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-o ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-p ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -802,6 +802,7 @@
           <button class="tm-act-btn" onclick="saveTaskModal()">✓ Save changes</button>
           <button class="tm-act-btn ghost" onclick="taskToCalendar()">⊞ Block on calendar</button>
           <button class="tm-act-btn ghost" id="tm-pull-doc" onclick="pullSubtasksFromDoc()" style="display:none">↻ Pull from Doc</button>
+          <button class="tm-act-btn ghost" id="tm-test-doc" onclick="testDocWrite()" style="display:none">⚙ Test Doc write</button>
           <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up email</button>
           <button class="tm-act-btn ghost" onclick="exportTaskWord()">⤓ Export to Word</button>
           <button class="tm-act-btn ghost" onclick="showMakeSub()">↳ Make subtask</button>
@@ -1129,6 +1130,7 @@ window.openTask = (id) => {
   document.getElementById('tm-doc').value      = t.linkedDoc || '';
   updateDocStatus();
   document.getElementById('tm-pull-doc').style.display = (t.linkedDoc && accessToken) ? '' : 'none';
+  document.getElementById('tm-test-doc').style.display = (t.linkedDoc && accessToken) ? '' : 'none';
   fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
   document.getElementById('tm-parent').style.display = 'none';
@@ -1272,6 +1274,8 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
   const blockText = heading + '\n' + sep + '\n' + lines + futureNote + '\n\n';
 
   try {
+    console.log('[Doc write] docId=', docId, 'token starts:', accessToken.slice(0,12)+'…');
+    console.log('[Doc write] blockText length:', blockText.length);
     // Insert at index 1 (right at the top of the doc body) so newest meeting appears first
     const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
       method: 'POST',
@@ -1280,9 +1284,10 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
         { insertText: { location: { index: 1 }, text: blockText } }
       ]})
     });
+    console.log('[Doc write] response status:', resp.status);
     if (!resp.ok) {
       const errTxt = await resp.text();
-      console.warn('Doc append failed', resp.status, errTxt);
+      console.warn('[Doc write] FAILED', resp.status, errTxt);
       if (resp.status === 401 || resp.status === 403) {
         showToast('Doc write failed: re-authorize Google (logout + login)');
       } else if (resp.status === 404) {
@@ -1369,6 +1374,32 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
   flush();
   return { found: inSection, sectionDate, items };
 }
+
+window.testDocWrite = async function() {
+  if (!currentTaskId) return;
+  const t = curTask();
+  console.log('[Test] task:', t);
+  console.log('[Test] linkedDoc raw:', t?.linkedDoc);
+  console.log('[Test] accessToken present:', !!accessToken, accessToken ? accessToken.slice(0,12)+'…' : '');
+  if (!t?.linkedDoc) { alert('No linked Doc'); return; }
+  if (!accessToken) { alert('No access token — connect Google'); return; }
+  const docId = parseDocId(t.linkedDoc);
+  console.log('[Test] parsed docId:', docId);
+  if (!docId) { alert('Could not parse Doc ID from URL: ' + t.linkedDoc); return; }
+
+  const ok = await appendMeetingSectionToDoc(
+    t,
+    todayStr(),
+    '09:00',
+    '09:30'
+  );
+  console.log('[Test] appendMeetingSectionToDoc returned:', ok);
+  if (ok) {
+    alert('✓ Test write succeeded. Open the Doc to verify.');
+  } else {
+    alert('✗ Test write failed — see Console (F12) for the API error.');
+  }
+};
 
 window.pullSubtasksFromDoc = async function() {
   if (!currentTaskId) return;
