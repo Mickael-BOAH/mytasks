@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-l ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-m ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1250,16 +1250,24 @@ window.maybeSyncDoc = function() { /* deprecated — sync now only on meeting cr
 async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
   if (!task?.linkedDoc || !accessToken) return false;
   const docId = parseDocId(task.linkedDoc); if (!docId) return false;
-  const subs = task.subtasks || [];
+  const allSubs = task.subtasks || [];
+  // Only subtasks relevant for this meeting:
+  // - no due date (always relevant — general agenda items)
+  // - due date on or before the meeting date (today's or overdue items)
+  // Excludes subtasks scheduled for future weeks (not today's topic)
+  const subs = allSubs.filter(s => !s.due || s.due <= dateStr);
+  const futureCount = allSubs.length - subs.length;
+
   // Heading: title + meeting date + time. Date format dd/mm/yyyy.
   const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
   const heading = `📋 ${task.title || 'Meeting'} — ${meetingLabel}`;
   const sep = '─'.repeat(50);
   const lines = subs.length
     ? subs.map(s => (s.done ? '☑ ' : '☐ ') + s.text + (s.due ? '  ('+fmtDate(s.due)+')' : '')).join('\n')
-    : '(no agenda items)';
+    : '(no agenda items for this date)';
+  const futureNote = futureCount > 0 ? `\n(+${futureCount} subtask${futureCount===1?'':'s'} scheduled for after this date — not shown)` : '';
   // Newest meetings on top: insert at index 1 (after doc start). Each section is appended/prepended as a block.
-  const blockText = heading + '\n' + sep + '\n' + lines + '\n\n';
+  const blockText = heading + '\n' + sep + '\n' + lines + futureNote + '\n\n';
 
   try {
     // Insert at index 1 (right at the top of the doc body) so newest meeting appears first
