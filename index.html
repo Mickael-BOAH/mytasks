@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-c ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-d ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1303,7 +1303,8 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   const subtitle = subtitleParts.join(' · ');
 
   // ── HEADER block (refined BOA brand styling) ────────────────────
-  segs.push({ text: (task.title || 'Meeting').toUpperCase() + '\n', style: 'heading' });
+  // Title carries pageBreakBefore so each meeting always begins on its own page
+  segs.push({ text: (task.title || 'Meeting').toUpperCase() + '\n', style: 'heading', pageBreakBefore: true });
   if (subtitle) segs.push({ text: subtitle + '\n', style: 'subtitle' });
   // Date subhead carries a bottom border (replaces the dash separator line)
   segs.push({ text: meetingLabel + '\n', style: 'subhead', borderBottom: true });
@@ -1353,7 +1354,8 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   const attList = (attendees && attendees.length) ? attendees : [null];
   for (const email of attList) {
     const name = email ? nameFromEmail(email) : 'Open discussion';
-    segs.push({ text: `👤 ${name.toUpperCase()}\n`, style: 'attendeeName' });
+    const header = email ? `👤 ${name} — ${email}` : `👤 ${name}`;
+    segs.push({ text: header + '\n', style: 'attendeeName' });
     segs.push({ text: 'Topics\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
@@ -1398,6 +1400,16 @@ function segmentsToRequests(segments, startIdx) {
             }
           },
           fields: 'borderBottom'
+        }
+      });
+    }
+    // Page break before this paragraph — used on each meeting title so meetings live on separate pages
+    if (seg.pageBreakBefore) {
+      requests.push({
+        updateParagraphStyle: {
+          range: { startIndex: cursor, endIndex: cursor + seg.text.length },
+          paragraphStyle: { pageBreakBefore: true },
+          fields: 'pageBreakBefore'
         }
       });
     }
@@ -1529,6 +1541,36 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
         console.log('[Doc write] all 5 steps OK ✓');
       }
     }
+
+    // ── STEP 6: ensure each meeting lives on its own page ──────────────
+    // After our new meeting (now at top), find the next 📋 title and apply
+    // pageBreakBefore to it. New meetings already have it from buildMeetingSegments,
+    // but legacy meetings (from before this change) don't, so this back-fills.
+    try {
+      const docResp3 = await docFetch(docId, 'GET');
+      if (docResp3.ok) {
+        const docJson3 = await docResp3.json();
+        const knownTitles2 = new Set((tasks || []).map(t => normTitle(t.title)));
+        const titles = (docJson3.body?.content || []).filter(el => {
+          if (!el.paragraph) return false;
+          const t = el.paragraph.elements?.map(e => e.textRun?.content || '').join('').replace(/\n+$/, '') || '';
+          return isAnyKnownMeetingTitle(t, knownTitles2);
+        });
+        // Apply pageBreakBefore to ALL meeting titles (idempotent — sets to true if not already)
+        const pageBreakReqs = titles.map(el => ({
+          updateParagraphStyle: {
+            range: { startIndex: el.startIndex, endIndex: el.startIndex + 1 },
+            paragraphStyle: { pageBreakBefore: true },
+            fields: 'pageBreakBefore'
+          }
+        }));
+        if (pageBreakReqs.length) {
+          const r6 = await docFetch(docId, 'POST', { requests: pageBreakReqs });
+          if (!r6.ok) console.warn('[Doc write step 6 — page breaks] FAILED', r6.status, await r6.text());
+        }
+      }
+    } catch (e) { console.warn('[Step 6] error', e); }
+
     return true;
   } catch (e) {
     console.warn('Doc append error', e);
@@ -1541,7 +1583,7 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
 // Returns { found: bool, sectionDate: 'yyyy-mm-dd'|null, items: [{text, done, notes}] }
 function parseLatestMeetingFromDoc(docJson, taskTitle) {
   const body = docJson.body?.content || [];
-  const headingPrefix = '📋 ' + (taskTitle || '');
+  const knownTitles = new Set((tasks || []).map(t => normTitle(t.title)));
   let inSection = false;
   let inDiscussion = false;
   let inDiscussionType = null; // 'topics' | 'tasks' | null
@@ -1562,12 +1604,12 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
     if (!line.trim() && !hasBullet) continue;
 
     // Heading
-    if (!hasBullet && line.startsWith(headingPrefix)) {
+    if (!hasBullet && isTitleOf(line, taskTitle)) {
       if (inSection) break;
       inSection = true; inDiscussion = false; inDiscussionType = null; currentAttendee = null;
       continue;
     }
-    if (!hasBullet && line.startsWith('📋 ')) {
+    if (!hasBullet && isAnyKnownMeetingTitle(line, knownTitles)) {
       if (inSection) break;
       continue;
     }
@@ -1671,24 +1713,36 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
 }
 
 // Locate upcoming meeting section for the task. Returns { startIdx, endIdx, date } or null.
+// Title matching helpers — handle new format (UPPERCASE, no emoji) and legacy ("📋 Title")
+function normTitle(s) { return (s || '').trim().replace(/^📋\s*/, '').toUpperCase(); }
+function isTitleOf(line, taskTitle) {
+  const want = normTitle(taskTitle);
+  if (!want) return false;
+  return normTitle(line) === want;
+}
+function isAnyKnownMeetingTitle(line, knownTitles) {
+  if (line.startsWith('📋 ')) return true;
+  return knownTitles.has(normTitle(line));
+}
+
 function findUpcomingMeetingSection(docJson, taskTitle, today) {
   const body = docJson.body?.content || [];
-  const headingPrefix = '📋 ' + (taskTitle || '');
+  const knownTitles = new Set((tasks || []).map(t => normTitle(t.title)));
   let startIdx = null, endIdx = null, date = null;
   for (let i = 0; i < body.length; i++) {
     const el = body[i];
-    const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
+    if (!el.paragraph) continue;
+    const txt = el.paragraph.elements?.map(e => e.textRun?.content || '').join('') || '';
     const line = txt.replace(/\n+$/, '');
-    if (line.startsWith('📋 ')) {
+    if (isAnyKnownMeetingTitle(line, knownTitles)) {
       if (startIdx !== null) { endIdx = el.startIndex; break; }
-      if (line.startsWith(headingPrefix)) {
-        // Scan the next few paragraphs for a date (subtitle line may sit between heading and date)
+      if (isTitleOf(line, taskTitle)) {
         let foundDate = null;
         for (let j = i+1; j < Math.min(i+5, body.length); j++) {
           const peek = body[j];
           if (!peek.paragraph) continue;
           const peekTxt = peek.paragraph.elements?.map(e => e.textRun?.content || '').join('') || '';
-          if (peekTxt.startsWith('📋 ')) break;
+          if (isAnyKnownMeetingTitle(peekTxt.replace(/\n+$/, ''), knownTitles)) break;
           const dm = peekTxt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
           if (dm) { foundDate = `${dm[3]}-${dm[2]}-${dm[1]}`; break; }
         }
