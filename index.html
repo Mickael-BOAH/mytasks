@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-d ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-e ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1311,17 +1311,6 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
 
   // Placeholder for the META TABLE
   segs.push({ text: '[[META_TABLE]]\n', style: null });
-
-  // PROGRESS bar (text + unicode blocks; subtler than before)
-  const allSubs = task.subtasks || [];
-  const doneAll = allSubs.filter(s => s.done).length;
-  const totalAll = allSubs.length;
-  if (totalAll > 0) {
-    const pct = Math.round(doneAll / totalAll * 100);
-    const blocks = Math.round(pct / 5);
-    const bar = '█'.repeat(blocks) + '░'.repeat(20 - blocks);
-    segs.push({ text: `${bar}   ${doneAll}/${totalAll} · ${pct}%\n`, style: 'progressBar' });
-  }
 
   // ── AGENDA ───────────────────────────────────────────────────────
   segs.push({ text: '\n', style: null });
