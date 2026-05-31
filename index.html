@@ -362,6 +362,8 @@
     .sub-head .sub-check { margin-top:3px; }
     .sub-head .sub-text-edit { flex:1 1 auto; min-width:0; width:auto; }
     .sub-head .sub-date { flex:0 0 auto; width:118px; }
+    .sub-head .sub-repeat { flex:0 0 auto; width:auto; max-width:120px; border:1px solid rgba(172,164,151,.5); padding:6px 7px; font-family:'Cormorant Garamond',serif; font-size:11px; outline:none; background:var(--white); color:var(--black); }
+    .sub-rep-hint { margin:6px 0 0 27px; font-size:10.5px; color:var(--green); font-style:italic; letter-spacing:.04em; opacity:.75; }
     .sub-block.done .sub-text-edit { text-decoration:line-through; color:var(--taupe); }
     .sub-notes { margin:6px 0 0 27px; font-size:13px; min-height:20px; }
     .sub-notes::placeholder { color:var(--taupe); font-style:italic; }
@@ -564,7 +566,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">A ligar…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-f ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Clica para forçar atualização">v2026.05.26-g ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google ligado</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Ligar ao Google →
@@ -729,6 +731,14 @@
           <div class="sub-add-row">
             <input id="tm-sub-input" placeholder="Adicionar passo…" onkeydown="if(event.key==='Enter'){addSubtask();event.preventDefault();}">
             <input type="date" id="tm-sub-date" class="sub-date" title="Data da subtarefa">
+            <select id="tm-sub-repeat" class="sub-repeat" title="Repetir">
+              <option value="">— sem repetir —</option>
+              <option value="daily">Diariamente</option>
+              <option value="weekdays">Dias úteis</option>
+              <option value="weekly">Semanal</option>
+              <option value="monthly">Mensal</option>
+              <option value="yearly">Anual</option>
+            </select>
             <button onclick="addSubtask()">+</button>
           </div>
         </div>
@@ -1147,15 +1157,21 @@ window.onTaskListChange = function() {
   saveTaskField('department', '');
   fillTaskModalDept('');
 };
+function subRepeatOptions(cur) {
+  const opts = [['','— sem repetir —'],['daily','Diariamente'],['weekdays','Dias úteis'],['weekly','Semanal'],['monthly','Mensal'],['yearly','Anual']];
+  return opts.map(([v,l]) => `<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
+}
 function subBlockHtml(s, i) {
-  return `<div class="sub-block ${s.done?'done':''}" data-idx="${i}">
+  return `<div class="sub-block ${s.done?'done':''}" data-idx="${i}" data-month-day="${s.monthDay||''}" data-done-at="${s.doneAt||''}">
       <div class="sub-head">
         <div class="sub-check ${s.done?'checked':''}" onclick="toggleSub(${i})"></div>
         <textarea class="sub-text-edit" rows="1" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.text)}</textarea>
         <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
+        <select class="sub-repeat" onchange="saveSubs()" title="Repetir esta subtarefa">${subRepeatOptions(s.repeat||'')}</select>
         <button class="sub-del" onclick="removeSub(${i})">✕</button>
       </div>
       <textarea class="sub-notes note-field" rows="1" placeholder="Notas / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
+      ${(s.repeat && !s.done) ? `<div class="sub-rep-hint">↻ ${REPEAT[s.repeat]||s.repeat} — ao concluir cria nova ocorrência</div>` : ''}
     </div>`;
 }
 function renderSubtasks(subs) {
@@ -1176,7 +1192,10 @@ function readSubsFromDOM() {
     text: el.querySelector('.sub-text-edit').value.trim(),
     done: el.querySelector('.sub-check').classList.contains('checked'),
     due:  el.querySelector('.sub-date').value || null,
-    notes: el.querySelector('.sub-notes').value
+    notes: el.querySelector('.sub-notes').value,
+    repeat: el.querySelector('.sub-repeat')?.value || null,
+    monthDay: Number(el.dataset.monthDay) || null,
+    doneAt: Number(el.dataset.doneAt) || null
   })).filter(s => s.text);
 }
 function updateSubProgress() {
@@ -1190,10 +1209,12 @@ window.saveSubs = () => { if (currentTaskId) updateDoc(doc(db,'tasks',currentTas
 window.addSubtask = () => {
   const inp = document.getElementById('tm-sub-input');
   const dateInp = document.getElementById('tm-sub-date');
+  const repInp = document.getElementById('tm-sub-repeat');
   const val = inp.value.trim(); if (!val || !currentTaskId) return;
   let due = dateInp.value || null; if (due) due = adjustWeekend(due);
-  const subs = readSubsFromDOM(); subs.push({text:val, done:false, due, notes:''});
-  inp.value = ''; dateInp.value = '';
+  const repeat = repInp ? (repInp.value || null) : null;
+  const subs = readSubsFromDOM(); subs.push({text:val, done:false, due, notes:'', repeat, monthDay: null});
+  inp.value = ''; dateInp.value = ''; if (repInp) repInp.value = '';
   renderSubtasks(subs); saveSubs();
 };
 window.setSubDue = (i, value) => {
@@ -1213,9 +1234,38 @@ window.toggleSub = (i) => {
   const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
   const el = blocks.find(b => Number(b.dataset.idx) === i); if (!el) return;
   const chk = el.querySelector('.sub-check');
+  const wasDone = chk.classList.contains('checked');
   chk.classList.toggle('checked');
   el.classList.toggle('done', chk.classList.contains('checked'));
-  const subs = readSubsFromDOM();
+  const becameDone = !wasDone;
+  let subs = readSubsFromDOM();
+  // If a recurring subtask just became done, clone a new instance with the next due date
+  if (becameDone) {
+    const target = subs[subs.findIndex((s, idx) => idx === i)];
+    // Note: subs order matches DOM order — find by index isn't reliable. Use the el.dataset.idx instead.
+    // Rebuild: find the sub object that corresponds to this DOM element
+    const subIdxInArr = blocks.indexOf(el); // position in DOM == position in readSubsFromDOM output
+    const justDone = subs[subIdxInArr];
+    if (justDone && justDone.repeat) {
+      justDone.doneAt = Date.now();
+      const nextDue = justDone.due
+        ? nextDate(justDone.due, justDone.repeat, justDone.monthDay)
+        : nextDate(todayStr(), justDone.repeat, justDone.monthDay);
+      const clone = {
+        text: justDone.text,
+        done: false,
+        due: nextDue,
+        notes: '',
+        repeat: justDone.repeat,
+        monthDay: justDone.monthDay || null
+      };
+      // Insert the new active clone before all done items (so it stays visible)
+      const firstDoneIdx = subs.findIndex(s => s.done);
+      if (firstDoneIdx === -1) subs.push(clone);
+      else subs.splice(firstDoneIdx, 0, clone);
+      showToast('↻ Próxima: ' + (nextDue ? fmtDate(nextDue) : 'sem data'));
+    }
+  }
   renderSubtasks(subs);
   saveSubs();
 };
