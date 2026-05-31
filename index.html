@@ -499,6 +499,10 @@
         <input id="sch-end" type="time" style="width:100%" onchange="onSchEndChange()">
       </div>
     </div>
+    <div class="field">
+      <label>Invite people (emails, comma-separated)</label>
+      <input id="sch-attendees" type="text" placeholder="alice@boa.pt, bob@example.com" style="width:100%">
+    </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeSchedule()">Cancel</button>
       <button class="btn-add btn-ok" onclick="confirmSchedule()">Create event</button>
@@ -574,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-q ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-r ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1272,14 +1276,17 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
   segs.push({ text: '─'.repeat(60) + '\n',             style: 'separator' });
   if (subs.length) {
     for (const s of subs) {
-      const sym = s.done ? '☑ ' : '☐ ';
       const due = s.due ? '  ('+fmtDate(s.due)+')' : '';
-      segs.push({ text: sym + s.text + due + '\n', style: s.done ? 'subDone' : 'subOpen' });
+      // Subtask line — will get a real Doc checkbox bullet applied later
+      segs.push({ text: s.text + due + '\n', style: 'subOpen', checkbox: true });
+      // Pre-existing notes
       if (s.notes) {
         for (const nl of s.notes.split('\n')) {
           if (nl.trim()) segs.push({ text: '    ↳ ' + nl + '\n', style: 'note' });
         }
       }
+      // Empty notes slot for during-meeting writing
+      segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
     }
   } else {
     segs.push({ text: '(no agenda items for this date)\n', style: 'empty' });
@@ -1295,6 +1302,7 @@ function segmentsToRequests(segments, startIdx) {
   const fullText = segments.map(s => s.text).join('');
   const requests = [{ insertText: { location: { index: startIdx }, text: fullText } }];
   let cursor = startIdx;
+  const checkboxRanges = [];
   for (const seg of segments) {
     if (seg.style) {
       const styleObj = DOC_STYLES[seg.style];
@@ -1306,7 +1314,18 @@ function segmentsToRequests(segments, startIdx) {
         }
       });
     }
+    if (seg.checkbox) {
+      // Each subtask paragraph becomes a real Google Docs checkbox bullet (interactive)
+      checkboxRanges.push({ startIndex: cursor, endIndex: cursor + seg.text.length });
+    }
     cursor += seg.text.length;
+  }
+  // Apply checkbox bullets after all text + styles (one request per checkbox paragraph
+  // — combining ranges in one request would also bullet the notes between them)
+  for (const range of checkboxRanges) {
+    requests.push({
+      createParagraphBullets: { range, bulletPreset: 'BULLET_CHECKBOX' }
+    });
   }
   return requests;
 }
@@ -1315,7 +1334,7 @@ function segmentsToRequests(segments, startIdx) {
 async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
   if (!task?.linkedDoc || !accessToken) return false;
   const docId = parseDocId(task.linkedDoc); if (!docId) return false;
-  const allSubs = task.subtasks || [];
+  const allSubs = (task.subtasks || []).filter(s => !s.done);
   const subs = allSubs.filter(s => !s.due || s.due <= dateStr);
   const futureCount = allSubs.length - subs.length;
 
@@ -1362,59 +1381,65 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
   const flush = () => { if (current) { current.notes = current.notes.trim(); items.push(current); current = null; } };
 
   for (const el of body) {
-    const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
-    const line = txt.replace(/\n+$/, ''); // strip trailing newline
+    if (!el.paragraph) continue;
+    const runs = el.paragraph.elements || [];
+    const txt = runs.map(e => e.textRun?.content || '').join('');
+    const line = txt.replace(/\n+$/, '');
+    const hasBullet = !!el.paragraph.bullet; // real Doc bullet (checkbox)
+    // A checkbox paragraph is "done" when Docs auto-applies strikethrough to all its text runs
+    const allStrike = runs.length > 0 && runs.every(r => !r.textRun || (r.textRun.textStyle?.strikethrough === true));
 
-    if (!line.trim()) continue;
+    if (!line.trim() && !hasBullet) continue;
 
-    // Heading detection
-    if (line.startsWith(headingPrefix)) {
-      if (inSection) {
-        // We already collected one section — stop at the next/older one
-        break;
-      }
+    // Heading detection (still text-only, not a bullet)
+    if (!hasBullet && line.startsWith(headingPrefix)) {
+      if (inSection) break; // next section reached, stop
       inSection = true;
       continue;
     }
     // Different task heading → our section ended
-    if (line.startsWith('📋 ')) {
+    if (!hasBullet && line.startsWith('📋 ')) {
       if (inSection) break;
       continue;
     }
     if (!inSection) continue;
 
-    // Date subhead (right after heading) — extract dd/mm/yyyy
-    if (!sectionDate) {
+    // Date subhead (right after heading)
+    if (!sectionDate && !hasBullet) {
       const dm = line.match(/(\d{2})\/(\d{2})\/(\d{4})/);
       if (dm) { sectionDate = `${dm[3]}-${dm[2]}-${dm[1]}`; continue; }
     }
-    // Skip the separator line
     if (/^─+\s*$/.test(line)) continue;
-    // Skip footer note
-    if (line.startsWith('(+') && line.includes('scheduled for after')) continue;
+    if (line.startsWith('(+') && line.includes('scheduled for')) continue;
     if (line === '(no agenda items for this date)') continue;
 
-    // Subtask line: ☐ ... or ☑ ... (Doc may also use ❌/✓ variants; accept common ones)
-    const subMatch = line.match(/^\s*([☐☑■□✅✓✗❌])\s+(.+)$/);
-    if (subMatch) {
+    // Subtask: a paragraph with a bullet (real Docs checkbox) OR legacy ☐/☑ text
+    if (hasBullet) {
       flush();
-      const symbol = subMatch[1];
-      let txt = subMatch[2];
+      let txt = line.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
+      if (!txt) continue;
+      current = { text: txt, done: allStrike, notes: '' };
+      continue;
+    }
+    const legacyMatch = line.match(/^\s*([☐☑■□✅✓✗❌])\s+(.+)$/);
+    if (legacyMatch) {
+      flush();
+      const symbol = legacyMatch[1];
+      let txt = legacyMatch[2].replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
       const done = ['☑','■','✅','✓'].includes(symbol);
-      // Strip trailing "  (dd/mm/yyyy)" date annotation we add ourselves
-      txt = txt.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
       current = { text: txt, done, notes: '' };
       continue;
     }
 
-    // Note line: indented or starts with > or →
-    if (/^(\s+|>|→|—|–|\-\s)/.test(line) && current) {
-      const noteTxt = line.replace(/^[\s>→—–\-]+/, '').trim();
+    // Note line: indented or starts with > → ↳ —
+    if (/^(\s+|>|→|↳|—|–|\-\s)/.test(line) && current) {
+      const noteTxt = line.replace(/^[\s>→↳—–\-]+/, '').trim();
+      // Skip empty notes slots (we pre-insert "    ↳ " which becomes "    ↳ " — empty after arrow)
       if (noteTxt) current.notes += (current.notes ? '\n' : '') + noteTxt;
       continue;
     }
-    // Free text line within section — attach as note to current subtask if any
-    if (current) {
+    // Free text within section — attach to current subtask
+    if (current && line.trim()) {
       current.notes += (current.notes ? '\n' : '') + line.trim();
     }
   }
@@ -1932,6 +1957,7 @@ window.openSchedule = function(id, title, dueDate) {
   document.getElementById('sch-date').value  = date;
   document.getElementById('sch-start').value = start;
   document.getElementById('sch-end').value   = minToTime(timeToMin(start) + schedDurationMin);
+  document.getElementById('sch-attendees').value = '';
   document.getElementById('sched-modal').style.display = 'flex';
 };
 window.onSchStartChange = function() {
@@ -1965,11 +1991,16 @@ window.confirmSchedule = async function() {
   // If the source task has a linked Doc, attach it to the event
   const srcTask = schedulingTask?.id ? tasks.find(x => x.id === schedulingTask.id) : null;
   const docId = srcTask?.linkedDoc ? parseDocId(srcTask.linkedDoc) : null;
+  const attendeesRaw = document.getElementById('sch-attendees').value.trim();
+  const attendees = attendeesRaw
+    ? attendeesRaw.split(/[,;]+/).map(s => s.trim()).filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)).map(email => ({ email }))
+    : [];
   const body = {
     summary: title,
     start: { dateTime: `${date}T${start}:00`, timeZone: tz },
     end:   { dateTime: `${date}T${end}:00`,   timeZone: tz }
   };
+  if (attendees.length) body.attendees = attendees;
   if (docId) {
     body.description = `📋 Linked doc: https://docs.google.com/document/d/${docId}/edit`;
     body.attachments = [{
@@ -1981,7 +2012,10 @@ window.confirmSchedule = async function() {
     }];
   }
   try {
-    const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events' + (docId ? '?supportsAttachments=true' : '');
+    const qs = [];
+    if (docId)            qs.push('supportsAttachments=true');
+    if (attendees.length) qs.push('sendUpdates=all');
+    const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events' + (qs.length ? '?' + qs.join('&') : '');
     const r = await fetch(url, {
       method:'POST',
       headers:{Authorization:`Bearer ${accessToken}`, 'Content-Type':'application/json'},
