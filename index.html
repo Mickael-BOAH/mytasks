@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-k ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-l ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1222,7 +1222,7 @@ function updateSubProgress() {
 window.saveSubs = () => {
   if (!currentTaskId) return;
   updateDoc(doc(db,'tasks',currentTaskId), {subtasks: readSubsFromDOM()});
-  maybeSyncDoc();
+  // Note: doc sync now ONLY triggers when a calendar meeting is created (confirmSchedule)
 };
 
 // ── Google Doc sync ────────────────────────────────────────────────────────
@@ -1240,75 +1240,45 @@ function updateDocStatus() {
   if (!url) { el.textContent = ''; return; }
   const id = parseDocId(url);
   if (!id) { el.textContent = '⚠ Not a valid Google Doc URL'; el.style.color = '#7a3030'; return; }
-  if (!accessToken) { el.textContent = '↻ Connect to Google to sync'; el.style.color = 'var(--taupe)'; return; }
-  el.textContent = '✓ Doc linked — subtasks sync automatically'; el.style.color = 'var(--green)';
+  if (!accessToken) { el.textContent = '↻ Connect to Google to use sync'; el.style.color = 'var(--taupe)'; return; }
+  el.textContent = '✓ Doc linked — new section added when you schedule a meeting'; el.style.color = 'var(--green)';
 }
-let _docSyncTimer = null;
-window.maybeSyncDoc = function() {
-  // debounce: wait 1.5s after last change to avoid hammering Docs API
-  clearTimeout(_docSyncTimer);
-  _docSyncTimer = setTimeout(syncSubtasksToDoc, 1500);
-};
-async function syncSubtasksToDoc() {
-  if (!currentTaskId || !accessToken) return;
-  const t = curTask(); if (!t || !t.linkedDoc) return;
-  const docId = parseDocId(t.linkedDoc); if (!docId) return;
-  const subs = readSubsFromDOM();
-  const heading = '📋 ' + (t.title || 'Task') + ' — Subtasks';
+window.maybeSyncDoc = function() { /* deprecated — sync now only on meeting creation */ };
+
+// Append a new dated meeting section to the linked Doc.
+// Called from confirmSchedule() AFTER the calendar event is created.
+async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
+  if (!task?.linkedDoc || !accessToken) return false;
+  const docId = parseDocId(task.linkedDoc); if (!docId) return false;
+  const subs = task.subtasks || [];
+  // Heading: title + meeting date + time. Date format dd/mm/yyyy.
+  const meetingLabel = `${fmtDate(dateStr)} · ${startTime}${endTime ? '–'+endTime : ''}`;
+  const heading = `📋 ${task.title || 'Meeting'} — ${meetingLabel}`;
+  const sep = '─'.repeat(50);
   const lines = subs.length
     ? subs.map(s => (s.done ? '☑ ' : '☐ ') + s.text + (s.due ? '  ('+fmtDate(s.due)+')' : '')).join('\n')
-    : '(no subtasks)';
-  const blockText = '\n' + heading + '\n' + '─'.repeat(40) + '\n' + lines + '\n';
+    : '(no agenda items)';
+  // Newest meetings on top: insert at index 1 (after doc start). Each section is appended/prepended as a block.
+  const blockText = heading + '\n' + sep + '\n' + lines + '\n\n';
 
   try {
-    // 1. Read doc to find existing heading marker
-    const r = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
-      headers: { Authorization: 'Bearer ' + accessToken }
+    // Insert at index 1 (right at the top of the doc body) so newest meeting appears first
+    const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [
+        { insertText: { location: { index: 1 }, text: blockText } }
+      ]})
     });
-    if (!r.ok) { console.warn('Docs read failed', r.status); return; }
-    const doc = await r.json();
-    const body = doc.body?.content || [];
-
-    // Find heading start/end indices
-    let startIdx = null, endIdx = null;
-    for (let i = 0; i < body.length; i++) {
-      const el = body[i];
-      const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
-      if (startIdx === null && txt.includes(heading)) { startIdx = el.startIndex; }
-      else if (startIdx !== null) {
-        // Walk until we hit our own block end (next heading after our content) or end of doc
-        // Use the marker line "─" to detect end of our auto-block
-        if (txt.startsWith('📋 ') && !txt.includes(heading)) { endIdx = el.startIndex; break; }
-      }
+    if (!resp.ok) {
+      const errTxt = await resp.text();
+      console.warn('Doc append failed', resp.status, errTxt);
+      return false;
     }
-    // If found, endIdx is start of next block (or undefined → end of doc)
-    if (startIdx === null) {
-      // Append at end
-      const last = body[body.length - 1];
-      const endOfDoc = (last?.endIndex || 1) - 1;
-      await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests: [
-          { insertText: { location: { index: endOfDoc }, text: blockText } }
-        ]})
-      });
-    } else {
-      // Replace from startIdx to endIdx (or end of doc)
-      const last = body[body.length - 1];
-      const endOfDoc = (last?.endIndex || 1) - 1;
-      const replaceEnd = endIdx || endOfDoc;
-      await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests: [
-          { deleteContentRange: { range: { startIndex: startIdx, endIndex: replaceEnd } } },
-          { insertText: { location: { index: startIdx }, text: blockText } }
-        ]})
-      });
-    }
+    return true;
   } catch (e) {
-    console.warn('Doc sync error', e);
+    console.warn('Doc append error', e);
+    return false;
   }
 }
 window.addSubtask = () => {
@@ -1791,7 +1761,16 @@ window.confirmSchedule = async function() {
     });
     if (!r.ok) throw new Error(await r.text());
     closeSchedule();
-    showToast(docId ? 'Event created with Doc attached ✓' : 'Event created in calendar');
+    // If the source task has a linked Doc, also append a meeting section to it
+    let docAppended = false;
+    if (srcTask?.linkedDoc) {
+      docAppended = await appendMeetingSectionToDoc(srcTask, date, start, end);
+    }
+    let msg = 'Event created in calendar';
+    if (docId && docAppended) msg = 'Event created · Doc attached + meeting section added ✓';
+    else if (docId) msg = 'Event created · Doc attached ✓';
+    else if (docAppended) msg = 'Event created · meeting added to Doc ✓';
+    showToast(msg);
   } catch (e) {
     console.warn(e);
     alert('Error creating event. Token may have expired — connect to Google again.');
