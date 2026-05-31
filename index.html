@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-f ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-g ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1325,7 +1325,7 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
           if (nl.trim()) segs.push({ text: '    ↳ ' + nl + '\n', style: 'note' });
         }
       }
-      segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
+      // Single notes slot per subtask — user presses Enter for more (with arrow on new line lost, but compact)
       segs.push({ text: '    ↳ \n', style: 'note', notesSlot: true });
     }
   } else {
@@ -1347,9 +1347,7 @@ function buildMeetingSegments(task, dateStr, startTime, endTime, subs, futureCou
     segs.push({ text: header + '\n', style: 'attendeeName' });
     segs.push({ text: 'Topics\n', style: 'discussionLabel' });
     segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
-    segs.push({ text: '\n', style: 'discussionBody', bulletDot: true });
     segs.push({ text: 'Follow-up tasks\n', style: 'discussionLabel' });
-    segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
     segs.push({ text: '\n', style: 'discussionBody', checkbox: true });
     segs.push({ text: '\n', style: null });
   }
@@ -1540,10 +1538,20 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime, atte
       if (docResp3.ok) {
         const docJson3 = await docResp3.json();
         const knownTitles2 = new Set((tasks || []).map(t => normTitle(t.title)));
-        const titles = (docJson3.body?.content || []).filter(el => {
+        const body3 = docJson3.body?.content || [];
+        // Strict: only paragraphs that are a known title AND followed within 5 paragraphs by a date pattern
+        const titles = body3.filter((el, i) => {
           if (!el.paragraph) return false;
           const t = el.paragraph.elements?.map(e => e.textRun?.content || '').join('').replace(/\n+$/, '') || '';
-          return isAnyKnownMeetingTitle(t, knownTitles2);
+          if (!isAnyKnownMeetingTitle(t, knownTitles2)) return false;
+          // Confirm by looking ahead for a date in the next few paragraphs
+          for (let j = i+1; j < Math.min(i+5, body3.length); j++) {
+            const peek = body3[j];
+            if (!peek.paragraph) continue;
+            const pt = peek.paragraph.elements?.map(e => e.textRun?.content || '').join('') || '';
+            if (/(\d{2})\/(\d{2})\/(\d{4})/.test(pt)) return true;
+          }
+          return false;
         });
         // Apply pageBreakBefore to ALL meeting titles (idempotent — sets to true if not already)
         const pageBreakReqs = titles.map(el => ({
