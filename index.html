@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-m ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-n ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -801,6 +801,7 @@
         <div class="tm-actions">
           <button class="tm-act-btn" onclick="saveTaskModal()">✓ Save changes</button>
           <button class="tm-act-btn ghost" onclick="taskToCalendar()">⊞ Block on calendar</button>
+          <button class="tm-act-btn ghost" id="tm-pull-doc" onclick="pullSubtasksFromDoc()" style="display:none">↻ Pull from Doc</button>
           <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up email</button>
           <button class="tm-act-btn ghost" onclick="exportTaskWord()">⤓ Export to Word</button>
           <button class="tm-act-btn ghost" onclick="showMakeSub()">↳ Make subtask</button>
@@ -1127,6 +1128,7 @@ window.openTask = (id) => {
   document.getElementById('tm-repeat').value   = t.repeat || '';
   document.getElementById('tm-doc').value      = t.linkedDoc || '';
   updateDocStatus();
+  document.getElementById('tm-pull-doc').style.display = (t.linkedDoc && accessToken) ? '' : 'none';
   fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
   document.getElementById('tm-parent').style.display = 'none';
@@ -1289,6 +1291,131 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
     return false;
   }
 }
+
+// Parse subtasks + notes from the most-recent meeting section in the Doc.
+// Returns { found: bool, sectionDate: 'yyyy-mm-dd'|null, items: [{text, done, notes}] }
+function parseLatestMeetingFromDoc(docJson, taskTitle) {
+  const body = docJson.body?.content || [];
+  const headingPrefix = '📋 ' + (taskTitle || '');
+  let inSection = false;
+  let sectionDate = null;
+  const items = [];
+  let current = null;
+  const flush = () => { if (current) { current.notes = current.notes.trim(); items.push(current); current = null; } };
+
+  for (const el of body) {
+    const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
+    const line = txt.replace(/\n+$/, ''); // strip trailing newline
+
+    if (!line.trim()) continue;
+
+    // Heading detection
+    if (line.startsWith(headingPrefix)) {
+      if (inSection) {
+        // We already collected one section — stop at the next/older one
+        break;
+      }
+      inSection = true;
+      // Extract dd/mm/yyyy from the heading
+      const dm = line.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (dm) sectionDate = `${dm[3]}-${dm[2]}-${dm[1]}`;
+      continue;
+    }
+    // Different task heading → our section ended
+    if (line.startsWith('📋 ')) {
+      if (inSection) break;
+      continue;
+    }
+    if (!inSection) continue;
+
+    // Skip the separator line
+    if (/^─+\s*$/.test(line)) continue;
+    // Skip footer note
+    if (line.startsWith('(+') && line.includes('scheduled for after')) continue;
+    if (line === '(no agenda items for this date)') continue;
+
+    // Subtask line: ☐ ... or ☑ ... (Doc may also use ❌/✓ variants; accept common ones)
+    const subMatch = line.match(/^\s*([☐☑■□✅✓✗❌])\s+(.+)$/);
+    if (subMatch) {
+      flush();
+      const symbol = subMatch[1];
+      let txt = subMatch[2];
+      const done = ['☑','■','✅','✓'].includes(symbol);
+      // Strip trailing "  (dd/mm/yyyy)" date annotation we add ourselves
+      txt = txt.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim();
+      current = { text: txt, done, notes: '' };
+      continue;
+    }
+
+    // Note line: indented or starts with > or →
+    if (/^(\s+|>|→|—|–|\-\s)/.test(line) && current) {
+      const noteTxt = line.replace(/^[\s>→—–\-]+/, '').trim();
+      if (noteTxt) current.notes += (current.notes ? '\n' : '') + noteTxt;
+      continue;
+    }
+    // Free text line within section — attach as note to current subtask if any
+    if (current) {
+      current.notes += (current.notes ? '\n' : '') + line.trim();
+    }
+  }
+  flush();
+  return { found: inSection, sectionDate, items };
+}
+
+window.pullSubtasksFromDoc = async function() {
+  if (!currentTaskId) return;
+  const t = curTask(); if (!t) return;
+  if (!t.linkedDoc) { showToast('No Doc linked'); return; }
+  if (!accessToken) { showToast('Connect to Google first'); return; }
+  const docId = parseDocId(t.linkedDoc); if (!docId) { showToast('Invalid Doc URL'); return; }
+
+  showToast('Reading Doc…');
+  try {
+    const r = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    if (!r.ok) { showToast('Could not read Doc (' + r.status + ')'); return; }
+    const docJson = await r.json();
+    const parsed = parseLatestMeetingFromDoc(docJson, t.title);
+    if (!parsed.found) { showToast('No meeting section found in Doc'); return; }
+    if (!parsed.items.length) { showToast('Meeting section is empty'); return; }
+
+    // Merge with existing subtasks (read from current DOM to preserve edits)
+    const existing = readSubsFromDOM();
+    const norm = s => (s || '').trim().toLowerCase();
+    let updated = 0, added = 0;
+    for (const p of parsed.items) {
+      const match = existing.find(s => norm(s.text) === norm(p.text));
+      if (match) {
+        let changed = false;
+        if (match.done !== p.done) { match.done = p.done; changed = true; }
+        if (p.notes && match.notes !== p.notes) {
+          // Append rather than replace if there were pre-existing notes that differ
+          if (!match.notes) match.notes = p.notes;
+          else if (!match.notes.includes(p.notes)) match.notes = match.notes + '\n— ' + p.notes;
+          changed = true;
+        }
+        if (changed) updated++;
+      } else {
+        existing.push({
+          text: p.text,
+          done: p.done,
+          due: parsed.sectionDate || todayStr(),
+          notes: p.notes,
+          repeat: null,
+          monthDay: null
+        });
+        added++;
+      }
+    }
+    renderSubtasks(existing);
+    await updateDoc(doc(db,'tasks',currentTaskId), { subtasks: existing });
+    showToast(`✓ Pulled from Doc — ${added} new, ${updated} updated`);
+  } catch (e) {
+    console.warn('Pull from Doc error', e);
+    showToast('Error reading Doc — token may be expired');
+  }
+};
 window.addSubtask = () => {
   const inp = document.getElementById('tm-sub-input');
   const dateInp = document.getElementById('tm-sub-date');
