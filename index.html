@@ -578,7 +578,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-s ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-t ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -805,6 +805,7 @@
         <div class="tm-actions">
           <button class="tm-act-btn" onclick="saveTaskModal()">✓ Save changes</button>
           <button class="tm-act-btn ghost" onclick="taskToCalendar()">⊞ Block on calendar</button>
+          <button class="tm-act-btn ghost" id="tm-push-doc" onclick="pushUpdatesToDoc()" style="display:none">↑ Update Doc</button>
           <button class="tm-act-btn ghost" id="tm-pull-doc" onclick="pullSubtasksFromDoc()" style="display:none">↻ Pull from Doc</button>
           <button class="tm-act-btn ghost" id="tm-test-doc" onclick="testDocWrite()" style="display:none">⚙ Test Doc write</button>
           <button class="tm-act-btn ghost" onclick="taskFollowUp()">✉ Follow-up email</button>
@@ -1133,8 +1134,10 @@ window.openTask = (id) => {
   document.getElementById('tm-repeat').value   = t.repeat || '';
   document.getElementById('tm-doc').value      = t.linkedDoc || '';
   updateDocStatus();
-  document.getElementById('tm-pull-doc').style.display = (t.linkedDoc && accessToken) ? '' : 'none';
-  document.getElementById('tm-test-doc').style.display = (t.linkedDoc && accessToken) ? '' : 'none';
+  const showDocBtns = (t.linkedDoc && accessToken) ? '' : 'none';
+  document.getElementById('tm-push-doc').style.display = showDocBtns;
+  document.getElementById('tm-pull-doc').style.display = showDocBtns;
+  document.getElementById('tm-test-doc').style.display = showDocBtns;
   fillTaskModalLists(t.listId, t.department);
   renderSubtasks(t.subtasks || []);
   document.getElementById('tm-parent').style.display = 'none';
@@ -1447,108 +1450,124 @@ function parseLatestMeetingFromDoc(docJson, taskTitle) {
   return { found: inSection, sectionDate, items };
 }
 
-// Find the most recent meeting section for this task with date >= today, then append
-// a new subtask to it (checkbox + notes slot). Silent if no upcoming meeting exists.
-async function pushNewSubtaskToUpcomingMeeting(newSub) {
-  if (!currentTaskId || !accessToken || !newSub || newSub.done) return;
-  const t = curTask(); if (!t || !t.linkedDoc) return;
-  const docId = parseDocId(t.linkedDoc); if (!docId) return;
-  // Skip if the new subtask is dated for after we'd see in any upcoming meeting (handled per-section below)
+// Locate upcoming meeting section for the task. Returns { startIdx, endIdx, date } or null.
+function findUpcomingMeetingSection(docJson, taskTitle, today) {
+  const body = docJson.body?.content || [];
+  const headingPrefix = '📋 ' + (taskTitle || '');
+  let startIdx = null, endIdx = null, date = null;
+  for (let i = 0; i < body.length; i++) {
+    const el = body[i];
+    const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
+    const line = txt.replace(/\n+$/, '');
+    if (line.startsWith('📋 ')) {
+      if (startIdx !== null) { endIdx = el.startIndex; break; }
+      if (line.startsWith(headingPrefix)) {
+        const next = body[i+1];
+        const nextTxt = next?.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
+        const dm = nextTxt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (dm) {
+          const iso = `${dm[3]}-${dm[2]}-${dm[1]}`;
+          if (iso >= today) { startIdx = el.startIndex; date = iso; }
+        }
+      }
+    }
+  }
+  return startIdx !== null ? { startIdx, endIdx, date, body } : null;
+}
+
+// Collect the set of subtask texts already present in a section (lowercased).
+function existingSubtaskTextsInSection(body, startIdx, endIdx) {
+  const set = new Set();
+  for (const el of body) {
+    if (el.startIndex < startIdx) continue;
+    if (endIdx && el.startIndex >= endIdx) break;
+    if (!el.paragraph?.bullet) continue; // only paragraphs with bullets (= checkboxes)
+    const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('').trim();
+    if (!txt) continue;
+    // Strip trailing "  (dd/mm/yyyy)"
+    const clean = txt.replace(/\s{2,}\(\d{2}\/\d{2}\/\d{4}\)\s*$/, '').trim().toLowerCase();
+    set.add(clean);
+  }
+  return set;
+}
+
+// Push all webapp subtasks that are missing in the upcoming meeting section, all in one batch.
+// Manual button — symmetric with "Pull from Doc". Never removes or overwrites Doc content.
+window.pushUpdatesToDoc = async function() {
+  if (!currentTaskId) return;
+  const t = curTask(); if (!t) return;
+  if (!t.linkedDoc) { showToast('No Doc linked'); return; }
+  if (!accessToken) { showToast('Connect to Google first'); return; }
+  const docId = parseDocId(t.linkedDoc); if (!docId) { showToast('Invalid Doc URL'); return; }
+
+  showToast('Reading Doc…');
   try {
     const r = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
       headers: { Authorization: 'Bearer ' + accessToken }
     });
-    if (!r.ok) return;
+    if (!r.ok) { showToast('Could not read Doc (' + r.status + ')'); return; }
     const docJson = await r.json();
-    const body = docJson.body?.content || [];
-    const headingPrefix = '📋 ' + (t.title || '');
-    const today = todayStr();
+    const section = findUpcomingMeetingSection(docJson, t.title, todayStr());
+    if (!section) { showToast('No upcoming meeting in Doc — schedule one first'); return; }
 
-    // Walk body: identify our task sections (each defined by heading + date in following paragraph + content until next 📋 or doc end)
-    let sectionStartIdx = null;
-    let sectionEndIdx   = null;
-    let sectionDate     = null;
-    for (let i = 0; i < body.length; i++) {
-      const el = body[i];
-      const txt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
-      const line = txt.replace(/\n+$/, '');
-      if (line.startsWith('📋 ')) {
-        if (sectionStartIdx !== null) { sectionEndIdx = el.startIndex; break; } // boundary
-        if (line.startsWith(headingPrefix)) {
-          // Check date in next paragraph
-          const next = body[i+1];
-          const nextTxt = next?.paragraph?.elements?.map(e => e.textRun?.content || '').join('') || '';
-          const dm = nextTxt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-          if (dm) {
-            const iso = `${dm[3]}-${dm[2]}-${dm[1]}`;
-            if (iso >= today) {
-              sectionStartIdx = el.startIndex;
-              sectionDate = iso;
-              // keep scanning to find sectionEndIdx
-            }
-          }
-        }
-      }
-    }
-    if (sectionStartIdx === null) return; // no upcoming meeting → silently skip
-    if (newSub.due && newSub.due > sectionDate) {
-      showToast('Subtask after meeting date — not added to Doc');
-      return;
-    }
+    const existing = existingSubtaskTextsInSection(section.body, section.startIdx, section.endIdx);
+    const subs = readSubsFromDOM(); // current webapp state
+    // Candidates: active subtasks with due ≤ meeting date (or no due) and not already in Doc
+    const toAdd = subs.filter(s =>
+      !s.done &&
+      (!s.due || s.due <= section.date) &&
+      !existing.has(s.text.trim().toLowerCase())
+    );
 
-    // Check duplicates within this section (case-insensitive)
-    const lcText = newSub.text.toLowerCase().trim();
-    let dup = false;
-    for (const el of body) {
-      if (el.startIndex < sectionStartIdx) continue;
-      if (sectionEndIdx && el.startIndex >= sectionEndIdx) break;
-      const ptxt = el.paragraph?.elements?.map(e => e.textRun?.content || '').join('').trim().toLowerCase();
-      if (ptxt && ptxt.startsWith(lcText)) { dup = true; break; }
-    }
-    if (dup) return;
+    if (!toAdd.length) { showToast('Doc already up to date — nothing to add'); return; }
 
-    // Insert point: just before the trailing blank line of our section
-    // (sectionEndIdx points to next heading start; -1 puts us before the spacer \n)
+    // Build one batch with all new items appended just before the spacer of our section
     let insertIdx;
-    if (sectionEndIdx) {
-      insertIdx = sectionEndIdx - 1;
-    } else {
-      const lastEl = body[body.length - 1];
+    if (section.endIdx) insertIdx = section.endIdx - 1;
+    else {
+      const lastEl = section.body[section.body.length - 1];
       insertIdx = (lastEl?.endIndex || 1) - 1;
     }
 
-    const due = newSub.due ? '  (' + fmtDate(newSub.due) + ')' : '';
-    const subLine   = newSub.text + due + '\n';
-    const noteLine  = '    ↳ \n';
-    const blockText = subLine + noteLine;
-    const subStart  = insertIdx;
-    const subEnd    = insertIdx + subLine.length;     // includes the \n
-    const noteStart = subEnd;
-    const noteEnd   = subEnd + noteLine.length;
+    // Compose combined block (subtask + notes-slot per item)
+    const blocks = toAdd.map(s => {
+      const due = s.due ? '  (' + fmtDate(s.due) + ')' : '';
+      const subLine  = s.text + due + '\n';
+      const noteLine = '    ↳ \n';
+      return { subLine, noteLine };
+    });
+    const blockText = blocks.map(b => b.subLine + b.noteLine).join('');
 
-    const subStyle  = DOC_STYLES.subOpen;
-    const noteStyle = DOC_STYLES.note;
-    const requests = [
-      { insertText: { location: { index: insertIdx }, text: blockText } },
-      { updateTextStyle: { range: { startIndex: subStart, endIndex: subEnd }, textStyle: subStyle, fields: Object.keys(subStyle).join(',') } },
-      { updateTextStyle: { range: { startIndex: noteStart, endIndex: noteEnd }, textStyle: noteStyle, fields: Object.keys(noteStyle).join(',') } },
-      { createParagraphBullets: { range: { startIndex: subStart, endIndex: subEnd }, bulletPreset: 'BULLET_CHECKBOX' } }
-    ];
+    const requests = [{ insertText: { location: { index: insertIdx }, text: blockText } }];
+    let cursor = insertIdx;
+    for (const b of blocks) {
+      const subStart = cursor, subEnd = cursor + b.subLine.length;
+      const noteStart = subEnd, noteEnd = subEnd + b.noteLine.length;
+      const subStyle = DOC_STYLES.subOpen, noteStyle = DOC_STYLES.note;
+      requests.push(
+        { updateTextStyle: { range: { startIndex: subStart, endIndex: subEnd }, textStyle: subStyle, fields: Object.keys(subStyle).join(',') } },
+        { updateTextStyle: { range: { startIndex: noteStart, endIndex: noteEnd }, textStyle: noteStyle, fields: Object.keys(noteStyle).join(',') } },
+        { createParagraphBullets: { range: { startIndex: subStart, endIndex: subEnd }, bulletPreset: 'BULLET_CHECKBOX' } }
+      );
+      cursor = noteEnd;
+    }
 
     const resp = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ requests })
     });
-    if (resp.ok) {
-      showToast('↑ Added to ' + fmtDate(sectionDate) + ' meeting in Doc');
-    } else {
-      console.warn('[Push to Doc] failed', resp.status, await resp.text());
+    if (!resp.ok) {
+      console.warn('[Push updates] failed', resp.status, await resp.text());
+      showToast('Doc update failed — see console');
+      return;
     }
+    showToast(`↑ Added ${toAdd.length} item${toAdd.length===1?'':'s'} to ${fmtDate(section.date)} meeting`);
   } catch (e) {
-    console.warn('[Push to Doc] error', e);
+    console.warn('[Push updates] error', e);
+    showToast('Error updating Doc');
   }
-}
+};
 
 window.testDocWrite = async function() {
   if (!currentTaskId) return;
@@ -1641,8 +1660,6 @@ window.addSubtask = () => {
   const subs = readSubsFromDOM(); subs.push(newSub);
   inp.value = ''; dateInp.value = ''; if (repInp) repInp.value = '';
   renderSubtasks(subs); saveSubs();
-  // If task has a linked Doc with an upcoming/today's meeting section, append this new subtask there
-  pushNewSubtaskToUpcomingMeeting(newSub);
 };
 window.setSubDue = (i, value) => {
   if (value) {
