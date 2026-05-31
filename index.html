@@ -574,7 +574,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-n ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.26-o ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1283,11 +1283,19 @@ async function appendMeetingSectionToDoc(task, dateStr, startTime, endTime) {
     if (!resp.ok) {
       const errTxt = await resp.text();
       console.warn('Doc append failed', resp.status, errTxt);
+      if (resp.status === 401 || resp.status === 403) {
+        showToast('Doc write failed: re-authorize Google (logout + login)');
+      } else if (resp.status === 404) {
+        showToast('Doc not found — check URL or sharing');
+      } else {
+        showToast('Doc write failed (' + resp.status + ') — see console');
+      }
       return false;
     }
     return true;
   } catch (e) {
     console.warn('Doc append error', e);
+    showToast('Doc write error — see console');
     return false;
   }
 }
@@ -1713,6 +1721,7 @@ window.doLogin = async () => {
   provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
   provider.addScope('https://www.googleapis.com/auth/drive.readonly');
   provider.addScope('https://www.googleapis.com/auth/documents');
+  provider.setCustomParameters({ prompt: 'consent' });
   try {
     const result = await signInWithPopup(auth, provider);
     const cred = GoogleAuthProvider.credentialFromResult(result);
@@ -1747,9 +1756,15 @@ function onGoogleConnected() {
   if (['all','today'].includes(view) || lists.find(l=>l.id===view)) renderTasks();
 }
 function googleReconnectHtml(what) {
-  return `<div class="empty-state"><div class="ico">◷</div><p>A ligação à Google expirou (renova a cada hora).<br>Reconecta para veres ${what}.</p><button class="refresh-btn" style="margin-top:16px" onclick="reconnectGoogle()">Reconnect Google</button></div>`;
+  return `<div class="empty-state"><div class="ico">◷</div><p>Google session expired (renews every hour).<br>Reconnect to see ${what}.</p><button class="refresh-btn" style="margin-top:16px" onclick="reconnectGoogle()">Reconnect Google</button></div>`;
 }
-window.reconnectGoogle = async () => { await doLogin(); };
+window.reconnectGoogle = async () => {
+  // Clear cached token + force fresh consent so new scopes are requested
+  localStorage.removeItem('myt-gtok');
+  accessToken = null;
+  try { await signOut(auth); } catch {}
+  setTimeout(() => doLogin(), 200);
+};
 
 // ── Calendar ───────────────────────────────────────────────────────────────
 async function fetchCalendarEvents() {
