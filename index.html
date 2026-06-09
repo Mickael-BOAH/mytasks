@@ -254,6 +254,14 @@
     .sub-text { flex:1; font-size:15px; }
     .sub-del { background:none; border:none; color:var(--taupe); cursor:pointer; font-size:14px; opacity:.5; }
     .sub-del:hover { opacity:1; color:#7a3030; }
+    .sub-move { background:none; border:none; color:var(--taupe); cursor:pointer; font-size:14px; opacity:.5; padding:0 4px; }
+    .sub-move:hover { opacity:1; color:var(--green); }
+    .sub-move-pop { position:absolute; z-index:300; background:var(--card-hover); border:1px solid rgba(172,164,151,.5); padding:8px; min-width:240px; max-height:300px; overflow-y:auto; box-shadow:0 6px 28px rgba(35,59,52,.18); }
+    .sub-move-pop .sub-move-search { width:100%; border:1px solid rgba(172,164,151,.4); padding:6px 8px; font-family:'Cormorant Garamond',serif; font-size:13px; outline:none; background:var(--white); color:var(--black); margin-bottom:6px; }
+    .sub-move-pop .sub-move-opt { padding:6px 8px; font-size:13px; cursor:pointer; border-bottom:1px solid rgba(172,164,151,.18); }
+    .sub-move-pop .sub-move-opt:last-child { border-bottom:none; }
+    .sub-move-pop .sub-move-opt:hover { background:rgba(35,59,52,.06); color:var(--green); }
+    .sub-move-pop .sub-move-list { font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--taupe); font-weight:600; margin-left:6px; }
     .sub-add-row { display:flex; gap:8px; margin-top:8px; }
     .sub-add-row input { flex:1; border:1px solid rgba(172,164,151,.5); padding:8px 10px; font-family:'Cormorant Garamond',serif; font-size:14px; outline:none; background:var(--white); color:var(--black); }
     .sub-add-row button { background:var(--green); color:var(--cream); border:none; width:34px; font-size:18px; cursor:pointer; flex-shrink:0; }
@@ -581,7 +589,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-i ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-j ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1198,6 +1206,7 @@ function subBlockHtml(s, i) {
         <textarea class="sub-text-edit" rows="1" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.text)}</textarea>
         <input type="date" class="sub-date" value="${s.due||''}" onchange="setSubDue(${i}, this.value)">
         <select class="sub-repeat" onchange="saveSubs()" title="Repeat this subtask">${subRepeatOptions(s.repeat||'')}</select>
+        <button class="sub-move" onclick="openMoveSub(${i}, this)" title="Move to another task">↗</button>
         <button class="sub-del" onclick="removeSub(${i})">✕</button>
       </div>
       <textarea class="sub-notes note-field" rows="1" placeholder="Notes / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
@@ -2016,6 +2025,101 @@ window.removeSub = (i) => {
   const subs = readSubsFromDOM();
   renderSubtasks(subs); saveSubs();
 };
+
+// ── Move subtask to another task ──────────────────────────────────────
+function closeMoveSubPop() {
+  const pop = document.getElementById('sub-move-pop');
+  if (pop) pop.remove();
+}
+window.openMoveSub = (i, btn) => {
+  closeMoveSubPop();
+  if (!currentTaskId) return;
+  const blocks = [...document.querySelectorAll('#tm-subs .sub-block')];
+  const el = blocks.find(b => Number(b.dataset.idx) === i); if (!el) return;
+  // Build the list of target tasks (exclude current task + completed tasks; sort by list)
+  const others = tasks
+    .filter(t => t.id !== currentTaskId && !t.completed)
+    .sort((a,b) => (a.listId||'').localeCompare(b.listId||'') || (a.title||'').localeCompare(b.title||''));
+  if (!others.length) { showToast('No other task to move to'); return; }
+  const pop = document.createElement('div');
+  pop.id = 'sub-move-pop';
+  pop.className = 'sub-move-pop';
+  const listMap = Object.fromEntries(lists.map(l => [l.id, l.name]));
+  const renderOpts = (filter) => {
+    const f = (filter || '').toLowerCase().trim();
+    return others
+      .filter(t => !f || (t.title||'').toLowerCase().includes(f) || (listMap[t.listId]||'').toLowerCase().includes(f))
+      .slice(0, 80)
+      .map(t => `<div class="sub-move-opt" data-target-id="${t.id}">
+        ${esc(t.title)} <span class="sub-move-list">${esc(listMap[t.listId] || 'No list')}</span>
+      </div>`).join('') || '<div class="sub-move-opt" style="color:var(--taupe);font-style:italic">No match</div>';
+  };
+  pop.innerHTML = `
+    <input type="text" class="sub-move-search" placeholder="Move to task…" id="sub-move-search">
+    <div id="sub-move-list">${renderOpts('')}</div>`;
+  document.body.appendChild(pop);
+  // Position near the button
+  const r = btn.getBoundingClientRect();
+  pop.style.top  = (window.scrollY + r.bottom + 6) + 'px';
+  pop.style.left = Math.max(8, Math.min(window.scrollX + r.left - 200, window.innerWidth - 260)) + 'px';
+  // Wire interactions
+  const input = pop.querySelector('#sub-move-search');
+  input.addEventListener('input', () => {
+    pop.querySelector('#sub-move-list').innerHTML = renderOpts(input.value);
+  });
+  pop.addEventListener('click', (ev) => {
+    const opt = ev.target.closest('.sub-move-opt');
+    if (!opt || !opt.dataset.targetId) return;
+    moveSubToTask(i, opt.dataset.targetId);
+    closeMoveSubPop();
+  });
+  setTimeout(() => input.focus(), 30);
+  // Close on outside click
+  setTimeout(() => document.addEventListener('mousedown', moveSubOutsideHandler), 0);
+};
+function moveSubOutsideHandler(ev) {
+  const pop = document.getElementById('sub-move-pop');
+  if (pop && !pop.contains(ev.target) && !ev.target.closest('.sub-move')) {
+    closeMoveSubPop();
+    document.removeEventListener('mousedown', moveSubOutsideHandler);
+  }
+}
+async function moveSubToTask(subIdx, targetTaskId) {
+  if (!currentTaskId || !targetTaskId) return;
+  const fromSubs = readSubsFromDOM();
+  const block = [...document.querySelectorAll('#tm-subs .sub-block')].find(b => Number(b.dataset.idx) === subIdx);
+  if (!block) return;
+  // We need the data-idx mapping into the array order — readSubsFromDOM returns in DOM order,
+  // so we find the sub object by matching the block's position relative to other blocks
+  const allBlocks = [...document.querySelectorAll('#tm-subs .sub-block')];
+  const posInDom = allBlocks.indexOf(block);
+  const moving = fromSubs[posInDom];
+  if (!moving) return;
+  // Remove from current task list, save remaining
+  const newFromSubs = fromSubs.filter((_, idx) => idx !== posInDom);
+  // Append to target task
+  const targetTask = tasks.find(t => t.id === targetTaskId);
+  if (!targetTask) return;
+  const targetSubs = (targetTask.subtasks || []).slice();
+  targetSubs.push({
+    text: moving.text,
+    done: !!moving.done,
+    due: moving.due || null,
+    notes: moving.notes || '',
+    repeat: moving.repeat || null,
+    monthDay: moving.monthDay || null
+  });
+  // Persist both
+  try {
+    await updateDoc(doc(db,'tasks',currentTaskId), { subtasks: newFromSubs });
+    await updateDoc(doc(db,'tasks',targetTaskId), { subtasks: targetSubs });
+    renderSubtasks(newFromSubs);
+    showToast('Moved to "' + (targetTask.title || 'task') + '" ✓');
+  } catch (e) {
+    console.warn('Move sub failed', e);
+    showToast('Move failed — see console');
+  }
+}
 window.deleteTaskFromModal = () => { if (currentTaskId) { deleteTask(currentTaskId); closeTaskModal(); } };
 window.saveTaskModal = async () => {
   if (!currentTaskId) return;
