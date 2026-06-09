@@ -5,10 +5,17 @@ import admin from 'firebase-admin';
 import webpush from 'web-push';
 
 const { FIREBASE_SA, VAPID_PUBLIC, VAPID_PRIVATE, VAPID_EMAIL } = process.env;
-if (!FIREBASE_SA)   throw new Error('FIREBASE_SA secret missing');
-if (!VAPID_PUBLIC)  throw new Error('VAPID_PUBLIC secret missing');
-if (!VAPID_PRIVATE) throw new Error('VAPID_PRIVATE secret missing');
-if (!VAPID_EMAIL)   throw new Error('VAPID_EMAIL secret missing');
+const missing = [
+  !FIREBASE_SA   && 'FIREBASE_SA',
+  !VAPID_PUBLIC  && 'VAPID_PUBLIC',
+  !VAPID_PRIVATE && 'VAPID_PRIVATE',
+  !VAPID_EMAIL   && 'VAPID_EMAIL'
+].filter(Boolean);
+if (missing.length) {
+  console.log('Skipping push — missing secrets:', missing.join(', '));
+  console.log('Configure them at: https://github.com/Mickael-BOAH/mytasks/settings/secrets/actions');
+  process.exit(0); // exit OK so GitHub does not send a failure email
+}
 
 const sa = JSON.parse(FIREBASE_SA);
 admin.initializeApp({ credential: admin.credential.cert(sa) });

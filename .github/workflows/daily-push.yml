@@ -1,9 +1,11 @@
 name: Daily focus push
 
-# 07:00 UTC every day — adjust to your timezone (Lisbon: 07 winter / 08 summer)
+# Schedule disabled until VAPID secrets are configured (VAPID_PUBLIC, VAPID_PRIVATE, VAPID_EMAIL).
+# To enable: uncomment the schedule block below, set the 3 secrets at
+# https://github.com/Mickael-BOAH/mytasks/settings/secrets/actions, and commit.
 on:
-  schedule:
-    - cron: '0 7 * * *'
+  # schedule:
+  #   - cron: '0 7 * * *'
   workflow_dispatch:
 
 jobs:
