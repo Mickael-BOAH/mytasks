@@ -256,7 +256,7 @@
     .sub-del:hover { opacity:1; color:#7a3030; }
     .sub-move { background:none; border:none; color:var(--taupe); cursor:pointer; font-size:14px; opacity:.5; padding:0 4px; }
     .sub-move:hover { opacity:1; color:var(--green); }
-    .sub-move-pop { position:absolute; z-index:300; background:var(--card-hover); border:1px solid rgba(172,164,151,.5); padding:8px; min-width:240px; max-height:300px; overflow-y:auto; box-shadow:0 6px 28px rgba(35,59,52,.18); }
+    .sub-move-pop { position:fixed; z-index:9999; background:var(--card-hover); border:1px solid rgba(172,164,151,.5); padding:8px; min-width:240px; max-height:300px; overflow-y:auto; box-shadow:0 6px 28px rgba(35,59,52,.18); }
     .sub-move-pop .sub-move-search { width:100%; border:1px solid rgba(172,164,151,.4); padding:6px 8px; font-family:'Cormorant Garamond',serif; font-size:13px; outline:none; background:var(--white); color:var(--black); margin-bottom:6px; }
     .sub-move-pop .sub-move-opt { padding:6px 8px; font-size:13px; cursor:pointer; border-bottom:1px solid rgba(172,164,151,.18); }
     .sub-move-pop .sub-move-opt:last-child { border-bottom:none; }
@@ -594,7 +594,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-k ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-l ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -2064,10 +2064,12 @@ window.openMoveSub = (i, btn) => {
     <input type="text" class="sub-move-search" placeholder="Move to task…" id="sub-move-search">
     <div id="sub-move-list">${renderOpts('')}</div>`;
   document.body.appendChild(pop);
-  // Position near the button
+  // Position near the button (fixed = viewport-relative, so no scroll offsets needed)
   const r = btn.getBoundingClientRect();
-  pop.style.top  = (window.scrollY + r.bottom + 6) + 'px';
-  pop.style.left = Math.max(8, Math.min(window.scrollX + r.left - 200, window.innerWidth - 260)) + 'px';
+  let top = r.bottom + 6;
+  if (top + 320 > window.innerHeight) top = Math.max(8, r.top - 320); // flip above if no room below
+  pop.style.top  = top + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left - 200, window.innerWidth - 260)) + 'px';
   // Wire interactions
   const input = pop.querySelector('#sub-move-search');
   input.addEventListener('input', () => {
