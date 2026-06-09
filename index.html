@@ -257,6 +257,9 @@
     .sub-move { background:none; border:none; color:var(--taupe); cursor:pointer; font-size:14px; opacity:.5; padding:0 4px; }
     .sub-move:hover { opacity:1; color:var(--green); }
     .sub-move-pop { position:fixed; z-index:9999; background:var(--card-hover); border:1px solid rgba(172,164,151,.5); padding:8px; min-width:240px; max-height:300px; overflow-y:auto; box-shadow:0 6px 28px rgba(35,59,52,.18); }
+    .time-pick { display:flex; align-items:center; gap:4px; }
+    .time-pick select { flex:1; min-width:0; padding:8px 6px; }
+    .time-pick .time-sep { color:var(--taupe); font-size:16px; }
     .sub-move-pop .sub-move-search { width:100%; border:1px solid rgba(172,164,151,.4); padding:6px 8px; font-family:'Cormorant Garamond',serif; font-size:13px; outline:none; background:var(--white); color:var(--black); margin-bottom:6px; }
     .sub-move-pop .sub-move-opt { padding:6px 8px; font-size:13px; cursor:pointer; border-bottom:1px solid rgba(172,164,151,.18); }
     .sub-move-pop .sub-move-opt:last-child { border-bottom:none; }
@@ -508,11 +511,19 @@
     <div class="field-row">
       <div class="field">
         <label>Start</label>
-        <input id="sch-start" type="time" step="900" style="width:100%" onchange="onSchStartChange()">
+        <div class="time-pick">
+          <select id="sch-start-h" onchange="onSchStartChange()"></select>
+          <span class="time-sep">:</span>
+          <select id="sch-start-m" onchange="onSchStartChange()"></select>
+        </div>
       </div>
       <div class="field">
         <label>End</label>
-        <input id="sch-end" type="time" step="900" style="width:100%" onchange="onSchEndChange()">
+        <div class="time-pick">
+          <select id="sch-end-h" onchange="onSchEndChange()"></select>
+          <span class="time-sep">:</span>
+          <select id="sch-end-m" onchange="onSchEndChange()"></select>
+        </div>
       </div>
     </div>
     <div class="field">
@@ -594,7 +605,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-l ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-m ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -2702,6 +2713,25 @@ function defaultStartTime() {
   if (m > 18*60) m = 9*60;
   return minToTime(m);
 }
+function populateTimeSelects() {
+  // Hours 00-23 + Minutes 00/15/30/45
+  const hours = Array.from({length:24}, (_,i) => String(i).padStart(2,'0'));
+  const mins  = ['00','15','30','45'];
+  const hOpts = hours.map(h => `<option value="${h}">${h}</option>`).join('');
+  const mOpts = mins.map(m => `<option value="${m}">${m}</option>`).join('');
+  ['sch-start-h','sch-end-h'].forEach(id => { const el = document.getElementById(id); if (el && !el.options.length) el.innerHTML = hOpts; });
+  ['sch-start-m','sch-end-m'].forEach(id => { const el = document.getElementById(id); if (el && !el.options.length) el.innerHTML = mOpts; });
+}
+function setSchTime(prefix, hhmm) {
+  const [h, m] = hhmm.split(':');
+  const rounded = String(Math.round(parseInt(m||'0',10) / 15) * 15 % 60).padStart(2,'0');
+  const hOk = String(parseInt(h||'9',10)).padStart(2,'0');
+  document.getElementById(prefix + '-h').value = hOk;
+  document.getElementById(prefix + '-m').value = rounded;
+}
+function getSchTime(prefix) {
+  return document.getElementById(prefix + '-h').value + ':' + document.getElementById(prefix + '-m').value;
+}
 window.openSchedule = function(id, title, dueDate) {
   schedulingTask = {id, title};
   schedDurationMin = 30;
@@ -2710,37 +2740,34 @@ window.openSchedule = function(id, title, dueDate) {
   const start = isToday ? defaultStartTime() : '09:00';
   document.getElementById('sch-title').value = title;
   document.getElementById('sch-date').value  = date;
-  document.getElementById('sch-start').value = start;
-  document.getElementById('sch-end').value   = minToTime(timeToMin(start) + schedDurationMin);
+  populateTimeSelects();
+  setSchTime('sch-start', start);
+  setSchTime('sch-end', minToTime(timeToMin(start) + schedDurationMin));
   document.getElementById('sch-attendees').value = '';
   document.getElementById('sched-modal').style.display = 'flex';
 };
 window.onSchStartChange = function() {
-  const s = document.getElementById('sch-start').value;
-  if (!s) return;
-  // Mantém a duração atual quando o utilizador muda o início
-  document.getElementById('sch-end').value = minToTime(timeToMin(s) + schedDurationMin);
+  const s = getSchTime('sch-start'); if (!s) return;
+  setSchTime('sch-end', minToTime(timeToMin(s) + schedDurationMin));
 };
 window.onSchEndChange = function() {
-  const s = document.getElementById('sch-start').value;
-  const e = document.getElementById('sch-end').value;
+  const s = getSchTime('sch-start'), e = getSchTime('sch-end');
   if (!s || !e) return;
   let diff = timeToMin(e) - timeToMin(s);
   if (diff <= 0) {
-    // Se o fim ficou antes do início, repõe duração padrão e ajusta o fim
     diff = schedDurationMin;
-    document.getElementById('sch-end').value = minToTime(timeToMin(s) + diff);
+    setSchTime('sch-end', minToTime(timeToMin(s) + diff));
     showToast('End before start → reset to ' + diff + ' min');
     return;
   }
-  schedDurationMin = diff; // memoriza a nova duração escolhida
+  schedDurationMin = diff;
 };
 window.closeSchedule = () => document.getElementById('sched-modal').style.display = 'none';
 window.confirmSchedule = async function() {
   const title = document.getElementById('sch-title').value.trim();
   const date  = document.getElementById('sch-date').value;
-  const start = document.getElementById('sch-start').value;
-  const end   = document.getElementById('sch-end').value || addHour(start);
+  const start = getSchTime('sch-start');
+  const end   = getSchTime('sch-end') || addHour(start);
   if (!title || !date || !start) return;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   // If the source task has a linked Doc, attach it to the event
