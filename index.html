@@ -495,11 +495,11 @@
     <div class="field-row">
       <div class="field">
         <label>Start</label>
-        <input id="sch-start" type="time" style="width:100%" onchange="onSchStartChange()">
+        <input id="sch-start" type="time" step="900" style="width:100%" onchange="onSchStartChange()">
       </div>
       <div class="field">
         <label>End</label>
-        <input id="sch-end" type="time" style="width:100%" onchange="onSchEndChange()">
+        <input id="sch-end" type="time" step="900" style="width:100%" onchange="onSchEndChange()">
       </div>
     </div>
     <div class="field">
@@ -581,7 +581,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-h ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-i ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -2582,12 +2582,12 @@ let schedDurationMin = 30; // duração predefinida da reunião (minutos)
 function timeToMin(s)  { if (!s) return 0; const [h,m] = s.split(':').map(Number); return h*60 + (m||0); }
 function minToTime(n)  { n = ((n % 1440) + 1440) % 1440; return String(Math.floor(n/60)).padStart(2,'0') + ':' + String(n%60).padStart(2,'0'); }
 function defaultStartTime() {
-  // Next half-hour from now (min 09:00)
+  // Next 15-minute slot from now (min 09:00, max 18:00)
   const now = new Date();
   let m = now.getHours()*60 + now.getMinutes();
-  m = Math.ceil(m / 30) * 30;
+  m = Math.ceil(m / 15) * 15;
   if (m < 9*60) m = 9*60;
-  if (m > 18*60) m = 9*60; // se depois das 18h, próximo dia às 9
+  if (m > 18*60) m = 9*60;
   return minToTime(m);
 }
 window.openSchedule = function(id, title, dueDate) {
