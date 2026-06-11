@@ -605,7 +605,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-m ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-n ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -2161,11 +2161,41 @@ window.saveTaskModal = async () => {
 };
 window.showMakeSub = () => {
   const sel = document.getElementById('tm-parent');
-  if (sel.style.display !== 'block') {
-    const others = tasks.filter(x => x.id !== currentTaskId && !x.completed);
-    sel.innerHTML = '<option value="">— escolher task —</option>' + others.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('');
-    sel.style.display = 'block';
-  } else sel.style.display = 'none';
+  if (sel.style.display === 'block') { sel.style.display = 'none'; return; }
+  const others = tasks.filter(x => x.id !== currentTaskId && !x.completed);
+  // Group by listId + department for native <optgroup> headers
+  const buckets = new Map(); // key = "listId||dept" → tasks[]
+  others.forEach(t => {
+    const lid  = t.listId || '__none';
+    const dept = t.department || '__none';
+    const k = lid + '||' + dept;
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(t);
+  });
+  // Build in sidebar list order, then by list.departments order (then "__none" last)
+  let html = '<option value="">— choose task —</option>';
+  const listOrder = [...lists.map(l => l.id), '__none'];
+  for (const lid of listOrder) {
+    const list = lists.find(l => l.id === lid);
+    const listName = list ? list.name : 'No list';
+    const deptOrder = [...(list?.departments || []), '__none'];
+    // Append any departments that exist on tasks but aren't in list config
+    [...buckets.keys()].filter(k => k.startsWith(lid + '||')).forEach(k => {
+      const d = k.split('||')[1];
+      if (!deptOrder.includes(d)) deptOrder.push(d);
+    });
+    for (const dept of deptOrder) {
+      const ts = buckets.get(lid + '||' + dept);
+      if (!ts || !ts.length) continue;
+      const label = (dept === '__none') ? listName : `${listName} · ${dept}`;
+      ts.sort((a,b) => (a.title||'').localeCompare(b.title||''));
+      html += `<optgroup label="${esc(label)}">` +
+        ts.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('') +
+        `</optgroup>`;
+    }
+  }
+  sel.innerHTML = html;
+  sel.style.display = 'block';
 };
 window.makeSubtaskOf = async (parentId) => {
   if (!parentId || !currentTaskId) return;
