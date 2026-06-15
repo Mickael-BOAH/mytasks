@@ -271,9 +271,9 @@
     .sub-date { border:1px solid rgba(172,164,151,.5); padding:6px 7px; font-family:'Cormorant Garamond',serif; font-size:12px; outline:none; background:var(--white); color:var(--black); }
     .sub-add-row .sub-date { flex:0 0 auto; width:140px; }
     .sub-item .sub-date { width:126px; flex-shrink:0; }
-    .qa-title { width:100%; border:none; border-bottom:1px solid var(--taupe); padding:6px 2px 12px; font-family:'Cormorant Garamond',serif; font-size:27px; font-weight:500; line-height:1.25; outline:none; background:transparent; color:var(--black); resize:none; overflow:hidden; }
-    .qa-title::placeholder { color:var(--taupe); font-style:italic; }
-    .qa-title:focus { border-bottom-color:var(--green); }
+    .qa-title { width:100%; box-sizing:border-box; border:1px solid rgba(172,164,151,.35); background:var(--card); padding:14px 16px; font-family:'Cormorant Garamond',serif; font-size:24px; font-weight:500; line-height:1.3; outline:none; color:var(--black); resize:none; overflow:hidden; min-height:90px; transition:border-color .15s, background .15s; }
+    .qa-title::placeholder { color:var(--taupe); font-style:italic; font-size:18px; }
+    .qa-title:focus { border-color:var(--green); background:#fff; }
     .bullet-dot { color:var(--green); font-size:16px; line-height:1; flex-shrink:0; }
     .qa-box { max-width:760px; max-height:90vh; overflow-y:auto; padding:34px 34px 28px; }
     .qa-box h3 { margin-bottom:18px; }
@@ -421,6 +421,8 @@
       .btn-newtask { padding:9px 12px; font-size:10.5px; letter-spacing:.12em; }
       .btn-newtask .kbd { display:none; }
       .main-header h2 { font-size:20px; }
+      .qa-title { font-size:20px; min-height:110px; padding:16px; }
+      .qa-title::placeholder { font-size:16px; }
       #setup .card { padding:32px 24px 28px; }
     }
   </style>
@@ -605,7 +607,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-n ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-o ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -702,7 +704,7 @@
   <div class="modal qa-box">
     <div class="tm-cols">
       <div class="tm-main">
-        <textarea id="qa-title" class="qa-title" rows="1" placeholder="New task…" oninput="tmAutoGrow(this)"></textarea>
+        <textarea id="qa-title" class="qa-title" rows="2" placeholder="New task…" oninput="tmAutoGrow(this)"></textarea>
         <div class="field" style="margin-top:18px">
           <label>Subtasks — each one with optional date</label>
           <div id="qa-subs"></div>
