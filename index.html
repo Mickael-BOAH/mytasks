@@ -607,7 +607,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-o ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-p ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -3369,7 +3369,7 @@ function filtered() {
   const today = todayStr();
   let base;
   if (view === 'all') base = tasks;
-  else if (view === 'today') base = tasks.filter(t => t.dueDate === today);
+  else if (view === 'today') base = tasks.filter(t => t.dueDate && (t.dueDate === today || (!t.completed && t.dueDate < today)));
   else if (view === 'done') base = tasks.filter(t => t.completed).slice().sort((a,b) => (b.completedAt||0) - (a.completedAt||0));
   else base = tasks.filter(t => t.listId === view);
   if (filters.text) base = base.filter(t => (t.title||'').toLowerCase().includes(filters.text) || (t.notes||'').toLowerCase().includes(filters.text) || (t.subtasks||[]).some(s => (s.text||'').toLowerCase().includes(filters.text)));
@@ -3531,7 +3531,7 @@ function updateBadges() {
   const today  = todayStr();
   const active = tasks.filter(t => !t.completed);
   document.getElementById('b-all').textContent   = active.length || '';
-  document.getElementById('b-today').textContent = active.filter(t => t.dueDate === today).length || '';
+  document.getElementById('b-today').textContent = active.filter(t => t.dueDate && t.dueDate <= today).length || '';
   const doneCount = tasks.filter(t => t.completed).length;
   const bDone = document.getElementById('b-done');
   if (bDone) bDone.textContent = doneCount || '';
