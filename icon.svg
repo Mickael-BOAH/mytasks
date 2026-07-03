@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- BOA Hotels monogram: B above arc above H, inside a portrait rectangle border -->
   <rect width="512" height="512" fill="#233b34"/>
-  <text x="50%" y="50%" font-family="Georgia, 'Cormorant Garamond', serif" font-size="280" font-weight="500" fill="#e2dfd6" text-anchor="middle" dominant-baseline="central">B</text>
+  <g transform="translate(256 256)">
+    <!-- Inner rectangle border (portrait) -->
+    <rect x="-135" y="-215" width="270" height="430" fill="none" stroke="#e2dfd6" stroke-width="10"/>
+    <!-- B letter (top) -->
+    <text x="0" y="-70" font-family="Georgia, 'Cormorant Garamond', serif" font-size="180" font-weight="500" fill="#e2dfd6" text-anchor="middle" dominant-baseline="alphabetic">B</text>
+    <!-- Arc between B and H (smile-shaped curve) -->
+    <path d="M -70 0 Q 0 40 70 0" fill="none" stroke="#e2dfd6" stroke-width="10" stroke-linecap="round"/>
+    <!-- H letter (bottom) -->
+    <text x="0" y="185" font-family="Georgia, 'Cormorant Garamond', serif" font-size="180" font-weight="500" fill="#e2dfd6" text-anchor="middle" dominant-baseline="alphabetic">H</text>
+  </g>
 </svg>
