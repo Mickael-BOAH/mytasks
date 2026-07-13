@@ -423,6 +423,19 @@
       .main-header h2 { font-size:20px; }
       .qa-title { font-size:20px; min-height:110px; padding:16px; }
       .qa-title::placeholder { font-size:16px; }
+      /* Full-viewport modals on phone/tablet, generous touch targets */
+      .overlay { padding:0; align-items:flex-start; }
+      .modal.qa-box { max-width:100%; width:100%; max-height:100vh; height:100vh; padding:22px 18px 100px; border-radius:0; overflow-y:auto; }
+      .modal { max-width:100%; padding:26px 20px; }
+      .qa-box .field label { font-size:12px; }
+      .qa-box .field input, .qa-box .field select, .qa-box .field textarea,
+      .qa-box select, .qa-box input[type="date"] { font-size:16px; padding:12px 12px; min-height:44px; }
+      .qa-box .sub-add-row input,
+      .qa-box .sub-add-row .sub-date,
+      .qa-box .sub-add-row button { min-height:44px; }
+      /* Sticky action bar at the bottom of Quick Add */
+      .qa-box .tm-side .tm-actions { position:sticky; bottom:0; margin-left:-20px; margin-right:-20px; padding:14px 20px; background:var(--cream); border-top:1px solid rgba(172,164,151,.35); z-index:5; margin-top:24px; flex-direction:row; gap:10px; }
+      .qa-box .tm-side .tm-act-btn { flex:1; padding:14px 10px; font-size:11px; min-height:48px; }
       #setup .card { padding:32px 24px 28px; }
     }
   </style>
@@ -607,7 +620,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-p ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-q ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -715,17 +728,17 @@
           </div>
         </div>
         <div class="field" style="margin-bottom:0"><label>Notes</label>
-          <textarea id="qa-notes" class="note-field" rows="1" placeholder="Notas, contexto…" oninput="tmAutoGrow(this)"></textarea>
+          <textarea id="qa-notes" class="note-field" rows="1" placeholder="Notes, context…" oninput="tmAutoGrow(this)"></textarea>
         </div>
       </div>
       <div class="tm-side">
-        <div class="field"><label>Prioridade</label>
+        <div class="field"><label>Priority</label>
           <select id="qa-priority"><option value="">—</option><option value="alta">High</option><option value="media">Medium</option><option value="baixa">Low</option></select>
         </div>
-        <div class="field"><label>Data limite</label><input id="qa-date" type="date"></div>
+        <div class="field"><label>Due date</label><input id="qa-date" type="date"></div>
         <div class="field"><label>List</label><select id="qa-list" onchange="qaListChange()"></select></div>
         <div class="field" id="qa-dept-wrap" style="display:none"><label>Department</label><select id="qa-dept"></select></div>
-        <div class="field"><label>Repeat</label><select id="qa-repeat"><option value="">Não repete</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
+        <div class="field"><label>Repeat</label><select id="qa-repeat"><option value="">Does not repeat</option><option value="daily">Daily</option><option value="weekdays">Weekdays</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></div>
         <div class="field" id="qa-template-wrap" style="display:none"><label>Use template</label><select id="qa-template" onchange="qaApplyTemplate()"></select></div>
         <div class="tm-actions">
           <button class="tm-act-btn" onclick="createQuickTask()">Create task</button>
