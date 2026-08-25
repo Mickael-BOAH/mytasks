@@ -636,7 +636,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-s ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-t ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1167,12 +1167,18 @@ window.toggleTask = async (id, cur) => {
         listId: t.listId || null, department: t.department || null,
         repeat: t.repeat, monthDay: t.monthDay || null,
         status: 'todo', notes: t.notes || '',
-        subtasks: (t.subtasks || []).map(s => ({
-          text: s.text, done: false,
-          due: s.monthDay ? nextDate(s.due, t.repeat, s.monthDay) : (s.due ? nextDate(s.due, t.repeat) : null),
-          notes: '',
-          monthDay: s.monthDay || null
-        })),
+        // Only carry over subtasks that are either recurring (standing items) OR still not-done (pending)
+        // A one-off subtask marked as done doesn't come back in the next occurrence.
+        subtasks: (t.subtasks || [])
+          .filter(s => !!s.repeat || !s.done)
+          .map(s => ({
+            text: s.text,
+            done: false,
+            due: s.monthDay ? nextDate(s.due, t.repeat, s.monthDay) : (s.due ? nextDate(s.due, t.repeat) : null),
+            notes: s.repeat ? '' : (s.notes || ''), // reset notes for recurring items; keep for pending carry-overs
+            monthDay: s.monthDay || null,
+            repeat: s.repeat || null                // ← preserve the subtask's own recurrence (was being lost)
+          })),
         completed: false, createdAt: serverTimestamp()
       });
       showToast('Next occurrence: ' + fmtDate(nd));
@@ -1258,7 +1264,7 @@ function subBlockHtml(s, i) {
         <button class="sub-del" onclick="removeSub(${i})">✕</button>
       </div>
       <textarea class="sub-notes note-field" rows="1" placeholder="Notes / action points…" oninput="tmAutoGrow(this)" onchange="saveSubs()">${esc(s.notes||'')}</textarea>
-      ${(s.repeat && !s.done) ? `<div class="sub-rep-hint">↻ ${REPEAT[s.repeat]||s.repeat} — creates next occurrence when completed</div>` : ''}
+      ${(s.repeat && !s.done) ? `<div class="sub-rep-hint">↻ Standing item · ${REPEAT[s.repeat]||s.repeat} — carries over to next occurrence</div>` : ''}
     </div>`;
 }
 function renderSubtasks(subs) {
