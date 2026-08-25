@@ -645,7 +645,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-v ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-w ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -1277,8 +1277,16 @@ function subBlockHtml(s, i) {
     </div>`;
 }
 function renderSubtasks(subs) {
-  const active = subs.map((s,i) => ({s,i})).filter(x => !x.s.done);
-  const done   = subs.map((s,i) => ({s,i})).filter(x =>  x.s.done);
+  // Sort by due date ASC (oldest at top). Undated items go to the bottom.
+  const byDueAsc = (a, b) => {
+    const ad = a.s.due, bd = b.s.due;
+    if (!ad && !bd) return 0;
+    if (!ad) return 1;
+    if (!bd) return -1;
+    return ad < bd ? -1 : (ad > bd ? 1 : 0);
+  };
+  const active = subs.map((s,i) => ({s,i})).filter(x => !x.s.done).sort(byDueAsc);
+  const done   = subs.map((s,i) => ({s,i})).filter(x =>  x.s.done).sort(byDueAsc);
   let html = active.map(x => subBlockHtml(x.s, x.i)).join('');
   if (done.length) {
     html += `<div class="sub-done-toggle" onclick="toggleSubDone()"><span>${subDoneOpen?'▾':'▸'} Completed — ${done.length}</span><div class="line"></div></div>`;
