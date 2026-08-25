@@ -234,8 +234,8 @@
       .task-modal, .qa-box { width:100%; max-width:100%; max-height:100%; }
     }
     .tm-cols { display:flex; gap:30px; }
-    .tm-main { flex:1.5; min-width:0; }
-    .tm-side { flex:1; min-width:0; border-left:1px solid rgba(172,164,151,.25); padding-left:28px; }
+    .tm-main { flex:1 1 auto; min-width:0; }
+    .tm-side { flex:0 0 280px; min-width:0; border-left:1px solid rgba(172,164,151,.25); padding-left:24px; }
     .tm-side .field { margin-bottom:14px; }
     .tm-side select, .tm-side input { width:100%; }
     .tm-side .tm-actions { flex-direction:column; gap:8px; margin-top:20px; }
@@ -645,7 +645,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-u ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.27-v ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
