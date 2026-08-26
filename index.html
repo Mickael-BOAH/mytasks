@@ -137,6 +137,8 @@
     .st-waiting { background:#f2ece0; color:#6b5320; }
     .st-rep { background:#e8e4dc; color:#5a5346; }
     .st-alert { background:#233b34; color:#e2dfd6; font-weight:600; }
+    .wd-chip { border:1px solid rgba(172,164,151,.5); background:var(--white); padding:6px 10px; font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; user-select:none; color:var(--taupe); font-weight:600; }
+    .wd-chip.on { background:var(--green); color:var(--cream); border-color:var(--green); }
     .sub-prog { font-size:11px; color:var(--taupe); letter-spacing:.05em; }
     .task-body { cursor:pointer; }
     .due { font-size:12px; color:var(--taupe); font-style:italic; }
@@ -646,7 +648,7 @@
 
   <div class="sb-footer">
     <div class="sb-status" id="sync-status">Connecting…</div>
-    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.28-a ⟳</div>
+    <div style="font-size:9px;color:rgba(226,223,214,.3);letter-spacing:.05em;margin-top:3px;cursor:pointer" onclick="forceReload()" title="Click to force refresh">v2026.05.28-b ⟳</div>
     <div id="google-connected-status" class="google-connected" style="display:none;">● Google connected</div>
     <button class="google-btn" id="google-connect-btn" onclick="connectGoogle()" style="display:none;">
       Connect to Google →
@@ -859,14 +861,18 @@
           <select id="tm-dept" onchange="saveTaskField('department', this.value)"></select>
         </div>
         <div class="field"><label>Repeat</label>
-          <select id="tm-repeat" onchange="saveTaskField('repeat', this.value)">
+          <select id="tm-repeat" onchange="onTmRepeatChange()">
             <option value="">Does not repeat</option>
             <option value="daily">Daily</option>
-            <option value="weekdays">Weekdays (Mon–Fri)</option>
+            <option value="weekdays">Selected weekdays…</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
             <option value="yearly">Yearly</option>
           </select>
+          <div id="tm-weekdays-pick" style="display:none;margin-top:8px;display:none">
+            <div style="font-size:10px;color:var(--taupe);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px">Choose days</div>
+            <div id="tm-weekdays-chips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+          </div>
         </div>
         <div class="field"><label>Start alert date</label>
           <input id="tm-alert-date" type="date" onchange="saveTaskField('alertDate', this.value || null)">
@@ -1173,13 +1179,13 @@ window.toggleTask = async (id, cur) => {
   const t = tasks.find(x => x.id === id);
   await updateDoc(doc(db,'tasks',id), {completed:!cur, status: !cur ? 'done' : 'todo', completedAt: !cur ? Date.now() : null});
   if (!cur && t && t.repeat) {
-    const nd = nextDate(t.dueDate, t.repeat, t.monthDay);
+    const nd = nextDate(t.dueDate, t.repeat, t.monthDay, t.weekdays);
     if (nd) {
       await addDoc(collection(db,'tasks'), {
         title: t.title, priority: t.priority || null, dueDate: nd,
         startDate: todayStr(),
         listId: t.listId || null, department: t.department || null,
-        repeat: t.repeat, monthDay: t.monthDay || null,
+        repeat: t.repeat, monthDay: t.monthDay || null, weekdays: t.weekdays || null,
         alertDate: (() => {
           if (!t.alertDate) return null;
           // Preserve the offset between alertDate and dueDate: new alert = nd - (dueDate - alertDate)
@@ -1223,6 +1229,13 @@ window.openTask = (id) => {
   document.getElementById('tm-due').value      = t.dueDate || '';
   document.getElementById('tm-notes').value    = t.notes || '';
   document.getElementById('tm-repeat').value   = t.repeat || '';
+  const wpick = document.getElementById('tm-weekdays-pick');
+  if (t.repeat === 'weekdays') {
+    renderWeekdaysChips(t.weekdays || [1,2,3,4,5]);
+    wpick.style.display = 'block';
+  } else {
+    wpick.style.display = 'none';
+  }
   // Alert date: prefer new field; back-fill from legacy startAlert (days) if present
   let alertDateVal = t.alertDate || '';
   if (!alertDateVal && t.startAlert && t.dueDate) {
@@ -1244,9 +1257,45 @@ window.openTask = (id) => {
 };
 window.tmAutoGrow = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
 window.closeTaskModal = () => { currentTaskId = null; document.getElementById('task-modal').style.display = 'none'; };
+const WD_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function renderWeekdaysChips(selected) {
+  const cont = document.getElementById('tm-weekdays-chips'); if (!cont) return;
+  const sel = new Set((selected || []).map(Number));
+  // Order Mon..Sun for a business-day feel
+  const order = [1,2,3,4,5,6,0];
+  cont.innerHTML = order.map(d => `<div class="wd-chip ${sel.has(d)?'on':''}" data-d="${d}" onclick="toggleWeekday(${d})">${WD_LABELS[d]}</div>`).join('');
+}
+function readTmWeekdays() {
+  return [...document.querySelectorAll('#tm-weekdays-chips .wd-chip.on')].map(el => Number(el.dataset.d));
+}
+window.toggleWeekday = (d) => {
+  const el = document.querySelector(`#tm-weekdays-chips .wd-chip[data-d="${d}"]`);
+  if (!el) return;
+  el.classList.toggle('on');
+  saveTaskField('weekdays', readTmWeekdays());
+};
+window.onTmRepeatChange = () => {
+  const v = document.getElementById('tm-repeat').value;
+  saveTaskField('repeat', v);
+  const pick = document.getElementById('tm-weekdays-pick');
+  if (v === 'weekdays') {
+    // Show chips. Default: Mon–Fri (backward compat) if task has none yet.
+    const t = curTask();
+    const current = t?.weekdays || [1,2,3,4,5];
+    renderWeekdaysChips(current);
+    pick.style.display = 'block';
+    // Persist default if the task had no weekdays field yet
+    if (!t?.weekdays) saveTaskField('weekdays', current);
+  } else {
+    pick.style.display = 'none';
+    saveTaskField('weekdays', null);
+  }
+};
+
 window.saveTaskField = (field, value) => {
   if (!currentTaskId) return;
-  let v = value || null;
+  let v = value;
+  if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) v = null;
   if ((field === 'dueDate' || field === 'startDate') && v) {
     const adj = adjustWeekend(v);
     if (adj !== v) {
@@ -3761,7 +3810,7 @@ const adjustWeekend = s => {
   if (day === 6) d.setDate(d.getDate()-1); else if (day === 0) d.setDate(d.getDate()-2);
   return fmtISO(d);
 };
-function nextDate(dateStr, repeat, monthDay) {
+function nextDate(dateStr, repeat, monthDay, weekdays) {
   // Anchored monthly: ignore previous date drift, snap to monthDay in next month
   if (repeat === 'monthly' && monthDay) {
     const base = new Date((dateStr || todayStr()) + 'T00:00:00');
@@ -3771,7 +3820,12 @@ function nextDate(dateStr, repeat, monthDay) {
   }
   const d = new Date((dateStr || todayStr()) + 'T00:00:00');
   if (repeat === 'daily') d.setDate(d.getDate()+1);
-  else if (repeat === 'weekdays') { do { d.setDate(d.getDate()+1); } while (d.getDay()===0 || d.getDay()===6); }
+  else if (repeat === 'weekdays') {
+    // Custom weekdays if provided, else default to Mon–Fri (1..5)
+    const set = new Set((weekdays && weekdays.length) ? weekdays.map(Number) : [1,2,3,4,5]);
+    let safety = 0;
+    do { d.setDate(d.getDate()+1); safety++; } while (!set.has(d.getDay()) && safety < 14);
+  }
   else if (repeat === 'weekly') d.setDate(d.getDate()+7);
   else if (repeat === 'monthly') d.setMonth(d.getMonth()+1);
   else if (repeat === 'yearly') d.setFullYear(d.getFullYear()+1);
